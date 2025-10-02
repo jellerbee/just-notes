@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "dist-electron",
+    "rootDir": "src",
+    "resolveJsonModule": true
+  },
+  "include": ["src/main/**/*", "src/shared/**/*", "src/renderer/lib/**/*"],
+  "exclude": ["node_modules", "dist", "dist-electron"]
+}

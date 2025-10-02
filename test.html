@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Raw HTML Test</h1>
+    <div id="test">This should be replaced by JavaScript</div>
+    <script>
+        console.log('🔥 JavaScript is executing!');
+        document.getElementById('test').innerHTML = '<h2 style="color: green;">✅ JavaScript is working!</h2>';
+        console.log('🔥 DOM manipulation completed!');
+    </script>
+</body>
+</html>

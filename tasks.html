@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Tasks - jnotes</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 0;
+            background: #f5f5f5;
+            outline: none; /* Remove focus outline */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        body:focus {
+            outline: none;
+        }
+        .header {
+            background: white;
+            padding: 16px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .filters {
+            background: white;
+            padding: 16px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+        }
+        .filter-group select, .filter-group input {
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .tasks-container {
+            padding: 16px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .tasks-list {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 48px 16px;
+            color: #666;
+        }
+        .back-link {
+            color: #007acc;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn:hover {
+            background: #f5f5f5;
+        }
+        .btn-primary {
+            background: #007acc;
+            color: white;
+            border-color: #007acc;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .task-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f4;
+            transition: background-color 0.15s;
+            min-height: 40px;
+        }
+        .task-row:hover {
+            background-color: #f8f9fa;
+        }
+        .task-row.selected {
+            background: linear-gradient(135deg, #007acc, #0066aa);
+            color: white;
+        }
+        .task-gutter {
+            width: 100px;
+            min-width: 100px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 8px;
+            padding-left: 16px;
+        }
+        .doing-indicator {
+            width: 50px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: left;
+            color: #666;
+        }
+        .task-row.selected .doing-indicator {
+            color: rgba(255,255,255,0.95);
+        }
+        .task-row.selected .task-checkbox {
+            /* Keep checkbox visible on selected background */
+        }
+        .task-checkbox {
+            font-size: 20px;
+            cursor: pointer;
+            user-select: none;
+            min-width: 24px;
+            flex-shrink: 0;
+        }
+        .task-checkbox:hover {
+            opacity: 0.7;
+        }
+        .task-text {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+            padding-right: 16px;
+        }
+    </style>
+</head>
+<body tabindex="0">
+    <div class="header">
+        <div>
+            <h1 style="margin: 0; font-size: 18px;">📋 Master Tasks</h1>
+        </div>
+        <div>
+            <a href="#" onclick="goBack()" class="back-link">← Back to Notes</a>
+        </div>
+    </div>
+
+    <div class="filters">
+        <div class="filter-group">
+            <label>Status</label>
+            <select id="statusFilter">
+                <option value="">All Tasks</option>
+                <option value="not-done" selected>Not Done</option>
+                <option value="doing">Doing</option>
+                <option value="done">Done</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Start Date</label>
+            <input type="date" id="startDateFilter">
+        </div>
+
+        <div class="filter-group">
+            <label>End Date</label>
+            <input type="date" id="endDateFilter">
+        </div>
+
+        <div class="filter-actions">
+            <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+            <button class="btn" onclick="clearFilters()">Clear</button>
+        </div>
+    </div>
+
+    <div class="tasks-container">
+        <div id="tasksContent">
+            <div class="empty-state">
+                Loading tasks...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('📋 Master Tasks page loading...');
+
+        // Get IPC renderer if available
+        const { ipcRenderer } = window.require?.('electron') ?? { ipcRenderer: null };
+
+        let allTasks = [];
+        let selectedTaskIndex = -1;
+
+        // Initialize the page
+        async function initializePage() {
+            if (!ipcRenderer) {
+                showError('No file system access available');
+                return;
+            }
+
+            // Set default filter to show not-done tasks
+            document.getElementById('statusFilter').value = 'not-done';
+
+            // Add keyboard event listeners
+            document.addEventListener('keydown', handleKeydown);
+            console.log('🎹 Keyboard event listener added to document');
+
+            // Ensure keyboard focus works immediately
+            console.log('🎯 Setting up keyboard focus...');
+
+            // Force immediate focus to ensure keyboard events work
+            setTimeout(() => {
+                document.body.focus();
+                window.focus();
+
+                // Test if focus worked by triggering a fake keydown
+                const testEvent = new KeyboardEvent('keydown', { key: 'Test' });
+                document.dispatchEvent(testEvent);
+
+                console.log('🎯 Focus setup complete, document.activeElement:', document.activeElement?.tagName);
+            }, 10);
+
+            await loadTasks();
+        }
+
+        // Handle keyboard shortcuts
+        function handleKeydown(event) {
+            console.log('🎹 Key pressed:', event.key, 'Selected index:', selectedTaskIndex, 'Total tasks:', allTasks.length);
+
+            if (event.key === ' ' || event.key === 'Spacebar') {
+                event.preventDefault();
+                cycleSelectedTaskStatus();
+            } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                selectNextTask();
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                selectPreviousTask();
+            } else if (event.key === 'Escape') {
+                clearTaskSelection();
+            }
+        }
+
+        // Load tasks with current filters
+        async function loadTasks() {
+            try {
+                const filters = getCurrentFilters();
+                console.log('📋 Loading tasks with filters:', filters);
+
+                const tasks = await ipcRenderer.invoke('tasks.master', filters);
+                allTasks = tasks;
+                renderTasks(tasks);
+
+            } catch (error) {
+                console.error('❌ Failed to load tasks:', error);
+                showError('Failed to load tasks');
+            }
+        }
+
+        // Get current filter values
+        function getCurrentFilters() {
+            const filters = {};
+
+            const status = document.getElementById('statusFilter').value;
+            if (status) filters.status = status;
+
+            const startDate = document.getElementById('startDateFilter').value;
+            if (startDate) filters.startDate = startDate;
+
+            const endDate = document.getElementById('endDateFilter').value;
+            if (endDate) filters.endDate = endDate;
+
+            return filters;
+        }
+
+        // Apply filters
+        async function applyFilters() {
+            await loadTasks();
+        }
+
+        // Clear all filters
+        async function clearFilters() {
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('startDateFilter').value = '';
+            document.getElementById('endDateFilter').value = '';
+            await loadTasks();
+        }
+
+        // Render tasks as simple list
+        function renderTasks(tasks) {
+            const container = document.getElementById('tasksContent');
+
+            if (tasks.length === 0) {
+                container.innerHTML = '<div class="empty-state">No tasks found with current filters.</div>';
+                return;
+            }
+
+            // Store for keyboard navigation
+            allTasks = tasks;
+            // Only reset selection if this is the initial load
+            if (selectedTaskIndex === -1 || selectedTaskIndex >= tasks.length) {
+                selectedTaskIndex = -1;
+                console.log('📋 Resetting selectedTaskIndex to -1');
+            } else {
+                console.log('📋 Preserving selectedTaskIndex:', selectedTaskIndex);
+            }
+
+            let html = '<div class="tasks-list">';
+
+            tasks.forEach((task, index) => {
+                html += renderTaskItem(task, index);
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+
+            // Auto-select first task for keyboard navigation (only if no selection)
+            if (allTasks.length > 0 && selectedTaskIndex === -1) {
+                selectedTaskIndex = 0;
+                console.log('📋 Auto-selecting first task, index:', selectedTaskIndex);
+                setTimeout(() => {
+                    console.log('📋 Calling updateTaskSelection after delay');
+                    updateTaskSelection();
+                }, 100); // Increased delay to ensure DOM is ready
+            } else if (allTasks.length > 0) {
+                // Restore existing selection
+                console.log('📋 Restoring existing selection:', selectedTaskIndex);
+                setTimeout(() => updateTaskSelection(), 100);
+            } else {
+                console.log('📋 No tasks to auto-select');
+            }
+        }
+
+        // Render a single task item
+        function renderTaskItem(task, index) {
+            // Visual checkbox based on task state
+            let checkbox = '';
+            if (task.state === 'TODO' || task.state === 'DOING') {
+                checkbox = '☐'; // Empty checkbox for both TODO and DOING
+            } else if (task.state === 'DONE') {
+                checkbox = '☑'; // Checked checkbox
+            }
+
+            // DOING indicator for left gutter
+            const doingText = task.state === 'DOING' ? 'DOING' : '';
+
+            return `
+                <div class="task-row" data-task-index="${index}" data-block-id="${task.block_id}" onclick="selectTask(${index})">
+                    <div class="task-gutter">
+                        <span class="task-checkbox" onclick="toggleTaskCheckbox(event, ${index})">${checkbox}</span>
+                        <div class="doing-indicator">${doingText}</div>
+                    </div>
+                    <span class="task-text">${task.text}</span>
+                </div>
+            `;
+        }
+
+        // Task selection and navigation functions
+        function selectTask(index) {
+            clearTaskSelection();
+            selectedTaskIndex = index;
+            updateTaskSelection();
+        }
+
+        function selectNextTask() {
+            console.log('⬇️ selectNextTask called. Current index:', selectedTaskIndex, 'Total tasks:', allTasks.length);
+            if (allTasks.length === 0) return;
+            const oldIndex = selectedTaskIndex;
+            selectedTaskIndex = Math.min(selectedTaskIndex + 1, allTasks.length - 1);
+            console.log('⬇️ Moving from', oldIndex, 'to', selectedTaskIndex);
+            updateTaskSelection();
+        }
+
+        function selectPreviousTask() {
+            console.log('⬆️ selectPreviousTask called. Current index:', selectedTaskIndex, 'Total tasks:', allTasks.length);
+            if (allTasks.length === 0) return;
+            const oldIndex = selectedTaskIndex;
+            selectedTaskIndex = Math.max(selectedTaskIndex - 1, 0);
+            console.log('⬆️ Moving from', oldIndex, 'to', selectedTaskIndex);
+            updateTaskSelection();
+        }
+
+        function clearTaskSelection() {
+            console.log('🧹 clearTaskSelection called, resetting index from', selectedTaskIndex, 'to -1');
+            document.querySelectorAll('.task-row').forEach(item => {
+                item.classList.remove('selected');
+            });
+            selectedTaskIndex = -1;
+        }
+
+        function updateTaskSelection() {
+            console.log('🎯 updateTaskSelection called for index:', selectedTaskIndex);
+
+            // Clear previous selection WITHOUT resetting selectedTaskIndex
+            document.querySelectorAll('.task-row').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            if (selectedTaskIndex >= 0 && selectedTaskIndex < allTasks.length) {
+                const taskElement = document.querySelector(`[data-task-index="${selectedTaskIndex}"]`);
+                console.log('🎯 Looking for element with selector:', `[data-task-index="${selectedTaskIndex}"]`);
+                console.log('🎯 Found task element:', taskElement);
+
+                if (taskElement) {
+                    taskElement.classList.add('selected');
+                    taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    console.log('🎯 Selection updated successfully, element classes:', taskElement.className);
+                } else {
+                    console.log('❌ Task element not found for index', selectedTaskIndex);
+                    console.log('❌ Available elements:', document.querySelectorAll('[data-task-index]'));
+                }
+            }
+        }
+
+        // Toggle task checkbox (click handler)
+        function toggleTaskCheckbox(event, index) {
+            event.stopPropagation(); // Prevent row selection
+
+            const task = allTasks[index];
+            let newStatus;
+
+            // Simple toggle: TODO/DOING -> DONE, DONE -> TODO
+            if (task.state === 'TODO' || task.state === 'DOING') {
+                newStatus = 'DONE';
+            } else {
+                newStatus = 'TODO';
+            }
+
+            updateTaskStatus(task.block_id, newStatus, index);
+        }
+
+        // Cycle the status of the selected task (spacebar)
+        async function cycleSelectedTaskStatus() {
+            if (selectedTaskIndex < 0 || selectedTaskIndex >= allTasks.length) {
+                console.log('📋 No task selected');
+                return;
+            }
+
+            const task = allTasks[selectedTaskIndex];
+            console.log('🔄 Cycling status for task:', task.text);
+
+            // Cycle: TODO -> DOING -> DONE -> TODO
+            let newStatus;
+            if (task.state === 'TODO') {
+                newStatus = 'DOING';
+            } else if (task.state === 'DOING') {
+                newStatus = 'DONE';
+            } else if (task.state === 'DONE') {
+                newStatus = 'TODO';
+            }
+
+            await updateTaskStatus(task.block_id, newStatus);
+        }
+
+        // Common function to update task status
+        async function updateTaskStatus(blockId, newStatus, clickedIndex = null) {
+            try {
+                // Store the current selection before update
+                const previousIndex = selectedTaskIndex;
+
+                // If clicking a checkbox, update the selection to that task
+                if (clickedIndex !== null && clickedIndex !== selectedTaskIndex) {
+                    selectedTaskIndex = clickedIndex;
+                    console.log('📋 Updating selection to clicked task:', clickedIndex);
+                }
+
+                // Update task status via IPC
+                await ipcRenderer.invoke('tasks.updateStatus', blockId, newStatus);
+                console.log('✅ Task status updated to:', newStatus);
+
+                // Update the task in the local array without reloading
+                const taskIndex = allTasks.findIndex(t => t.block_id === blockId);
+                if (taskIndex !== -1) {
+                    allTasks[taskIndex].state = newStatus;
+                    console.log('📋 Updated task state locally:', allTasks[taskIndex]);
+
+                    // Re-render the tasks with the updated state
+                    renderTasks(allTasks);
+                }
+
+                console.log('✅ Task status update completed (task kept visible)');
+
+            } catch (error) {
+                console.error('❌ Failed to update task status:', error);
+                showError('Failed to update task status');
+            }
+        }
+
+        // Go back to main editor
+        function goBack() {
+            window.location.href = 'simple.html';
+        }
+
+        // Show error message
+        function showError(message) {
+            const container = document.getElementById('tasksContent');
+            container.innerHTML = `<div class="empty-state">❌ ${message}</div>`;
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            console.log('📋 Initializing Master Tasks page...');
+            initializePage();
+        });
+
+        // Add a fallback for DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📋 DOM Content Loaded - Master Tasks');
+        });
+
+        // Test keyboard immediately
+        window.addEventListener('keydown', (e) => {
+            console.log('📋 Global keydown test:', e.key);
+        });
+
+        console.log('✅ Master Tasks script ready!');
+    </script>
+</body>
+</html>

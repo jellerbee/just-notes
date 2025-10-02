@@ -1,0 +1,730 @@
+// =============================
+// Project: Personal Notes MVP (Electron + React + TypeScript)
+// Hybrid: Markdown files (truth) + SQLite(FTS5) index
+// =============================
+// Folder layout (suggested)
+//
+// package.json
+// vite.config.ts
+// tsconfig.json
+// electron.vite.config.ts (optional)
+//
+// /sqlite/schema.sql
+// /src/main/index.ts
+// /src/main/db.ts
+// /src/main/fs.ts
+// /src/main/indexer.ts
+// /src/shared/types.ts
+//
+// /src/renderer/main.tsx
+// /src/renderer/App.tsx
+// /src/renderer/pages/Home.tsx
+// /src/renderer/pages/Daily.tsx
+// /src/renderer/pages/Note.tsx
+// /src/renderer/components/NoteEditor.tsx
+// /src/renderer/components/Search.tsx
+// /src/renderer/components/TasksView.tsx
+// /src/renderer/lib/markdown/parse.ts
+// /src/renderer/lib/markdown/serialize.ts
+// /src/renderer/lib/tiptap/wikilink.ts
+// /src/renderer/lib/tiptap/tasks.ts
+// /src/renderer/lib/tiptap/keymaps.ts
+//
+// Note: These are stubs with TODOs and minimal wiring so Claude/you can flesh out logic.
+
+// =============================
+// package.json (stub)
+// =============================
+{
+  "name": "notes-mvp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "electron .",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\""
+  },
+  "dependencies": {
+    "electron": "^30.0.0",
+    "better-sqlite3": "^9.4.0",
+    "uuid": "^9.0.1",
+    "gray-matter": "^4.0.3",
+    "remark": "^15.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "unist-util-visit": "^5.0.0",
+    "@tiptap/react": "^2.2.4",
+    "@tiptap/starter-kit": "^2.2.4",
+    "@tiptap/extension-link": "^2.2.4",
+    "@tiptap/extension-placeholder": "^2.2.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8",
+    "@types/node": "^22.7.4",
+    "@types/react": "^18.3.7",
+    "@types/react-dom": "^18.3.0",
+    "wait-on": "^7.2.0"
+  }
+}
+
+// =============================
+// sqlite/schema.sql
+// =============================
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS notes (
+  id            TEXT PRIMARY KEY,
+  path          TEXT NOT NULL UNIQUE,
+  title         TEXT NOT NULL,
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS blocks (
+  id               TEXT PRIMARY KEY,
+  note_id          TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+  parent_block_id  TEXT REFERENCES blocks(id) ON DELETE CASCADE,
+  order_in_parent  INTEGER NOT NULL,
+  depth            INTEGER NOT NULL,
+  text_md          TEXT NOT NULL,
+  text_plain       TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS links (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  src_block_id  TEXT NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
+  target        TEXT NOT NULL,
+  kind          TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  block_id   TEXT NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
+  tag_text   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  block_id   TEXT NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
+  state      TEXT NOT NULL,
+  due        TEXT,
+  priority   TEXT
+);
+
+-- Full-text search over blocks
+CREATE VIRTUAL TABLE IF NOT EXISTS blocks_fts USING fts5(
+  block_id UNINDEXED,
+  note_id UNINDEXED,
+  text,
+  content='',
+  tokenize='porter'
+);
+
+CREATE INDEX IF NOT EXISTS idx_blocks_note ON blocks(note_id);
+CREATE INDEX IF NOT EXISTS idx_blocks_parent ON blocks(parent_block_id);
+CREATE INDEX IF NOT EXISTS idx_links_src ON links(src_block_id);
+CREATE INDEX IF NOT EXISTS idx_tags_block ON tags(block_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_state ON tasks(state);
+
+// =============================
+// src/shared/types.ts
+// =============================
+export type UUID = string;
+
+export interface NoteRow {
+  id: UUID;
+  path: string;      // absolute path
+  title: string;
+  created_at: number; // epoch ms
+  updated_at: number; // epoch ms
+}
+
+export interface BlockRow {
+  id: UUID;
+  note_id: UUID;
+  parent_block_id: UUID | null;
+  order_in_parent: number;
+  depth: number;
+  text_md: string;
+  text_plain: string;
+}
+
+export interface LinkRow {
+  id?: number;
+  src_block_id: UUID;
+  target: string;
+  kind: 'wikilink' | 'url';
+}
+
+export interface TagRow {
+  id?: number;
+  block_id: UUID;
+  tag_text: string;
+}
+
+export interface TaskRow {
+  id?: number;
+  block_id: UUID;
+  state: 'TODO' | 'DOING' | 'DONE';
+  due?: string | null;
+  priority?: 'A' | 'B' | 'C' | null;
+}
+
+// =============================
+// src/main/db.ts (Electron main process)
+// =============================
+import Database from 'better-sqlite3';
+import fs from 'node:fs';
+import path from 'node:path';
+
+let db: Database.Database | null = null;
+
+export function openDb(dbFile: string, schemaFile: string) {
+  const dir = path.dirname(dbFile);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  db = new Database(dbFile);
+  const schemaSql = fs.readFileSync(schemaFile, 'utf8');
+  db.exec(schemaSql);
+  return db;
+}
+
+export function getDb() {
+  if (!db) throw new Error('DB not opened');
+  return db;
+}
+
+export function closeDb() {
+  db?.close();
+  db = null;
+}
+
+// =============================
+// src/main/fs.ts (vault helpers)
+// =============================
+import fs from 'node:fs';
+import path from 'node:path';
+
+export interface VaultConfig { root: string; }
+
+export function ensureDailyNote(cfg: VaultConfig, date = new Date()) {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const name = `${yyyy}-${mm}-${dd}.md`;
+  const filePath = path.join(cfg.root, name);
+  if (!fs.existsSync(cfg.root)) fs.mkdirSync(cfg.root, { recursive: true });
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, `# ${yyyy}-${mm}-${dd}\n\n- `);
+  }
+  return filePath;
+}
+
+export function readFileAbs(filePath: string) {
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+export function writeFileAbs(filePath: string, content: string) {
+  fs.writeFileSync(filePath, content, 'utf8');
+}
+
+// =============================
+// src/main/indexer.ts (Markdown → DB)
+// =============================
+import { v4 as uuidv4 } from 'uuid';
+import { getDb } from './db.js';
+import { parseMarkdownToBlocks } from '../renderer/lib/markdown/parse.js';
+import type { NoteRow, BlockRow, LinkRow, TagRow, TaskRow } from '../shared/types.js';
+import path from 'node:path';
+import fs from 'node:fs';
+
+// Hidden ID marker helpers
+const ID_MARKER_RE = /<!--\s*\{id:\s*([0-9a-fA-F-]{36})\}\s*-->/;
+
+export function ensureBlockIdOnLine(line: string): { lineWithId: string; id: string } {
+  const m = line.match(ID_MARKER_RE);
+  if (m) return { lineWithId: line, id: m[1] };
+  const id = uuidv4();
+  const lineWithId = `${line} <!-- {id: ${id}} -->`;
+  return { lineWithId, id };
+}
+
+export function reindexFile(absPath: string) {
+  const db = getDb();
+  const stat = fs.statSync(absPath);
+  let content = fs.readFileSync(absPath, 'utf8');
+
+  // Pass 1: ensure every bullet line has an ID marker
+  const lines = content.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*-\s+/.test(lines[i])) {
+      const r = ensureBlockIdOnLine(lines[i]);
+      lines[i] = r.lineWithId;
+    }
+  }
+  content = lines.join('\n');
+  fs.writeFileSync(absPath, content, 'utf8');
+
+  // Parse into block tree and extracted entities
+  const parsed = parseMarkdownToBlocks(content); // { blocks, links, tags, tasks }
+
+  const title = path.basename(absPath).replace(/\.md$/i, '');
+
+  const upsertNote = db.prepare(`
+    INSERT INTO notes (id, path, title, created_at, updated_at)
+    VALUES (@id, @path, @title, @created_at, @updated_at)
+    ON CONFLICT(path) DO UPDATE SET title=excluded.title, updated_at=excluded.updated_at
+    RETURNING id;
+  `);
+
+  const noteRow: NoteRow = {
+    id: uuidv4(), // may be replaced by existing id via RETURNING
+    path: absPath,
+    title,
+    created_at: stat.birthtimeMs || stat.ctimeMs,
+    updated_at: stat.mtimeMs,
+  } as NoteRow;
+
+  const tx = db.transaction(() => {
+    const existing = db.prepare('SELECT id FROM notes WHERE path = ?').get(absPath) as { id?: string } | undefined;
+    if (existing?.id) noteRow.id = existing.id as string;
+    const returned = upsertNote.get(noteRow) as { id: string };
+    noteRow.id = returned.id;
+
+    // Clear existing block data for this note
+    db.prepare('DELETE FROM links WHERE src_block_id IN (SELECT id FROM blocks WHERE note_id = ?)').run(noteRow.id);
+    db.prepare('DELETE FROM tags WHERE block_id IN (SELECT id FROM blocks WHERE note_id = ?)').run(noteRow.id);
+    db.prepare('DELETE FROM tasks WHERE block_id IN (SELECT id FROM blocks WHERE note_id = ?)').run(noteRow.id);
+    db.prepare('DELETE FROM blocks WHERE note_id = ?').run(noteRow.id);
+
+    const insBlock = db.prepare(`
+      INSERT INTO blocks (id, note_id, parent_block_id, order_in_parent, depth, text_md, text_plain)
+      VALUES (@id, @note_id, @parent_block_id, @order_in_parent, @depth, @text_md, @text_plain);
+    `);
+    const insLink = db.prepare(`
+      INSERT INTO links (src_block_id, target, kind) VALUES (@src_block_id, @target, @kind);
+    `);
+    const insTag = db.prepare(`
+      INSERT INTO tags (block_id, tag_text) VALUES (@block_id, @tag_text);
+    `);
+    const insTask = db.prepare(`
+      INSERT INTO tasks (block_id, state, due, priority) VALUES (@block_id, @state, @due, @priority);
+    `);
+
+    for (const b of parsed.blocks) {
+      const block: BlockRow = {
+        id: b.id,
+        note_id: noteRow.id,
+        parent_block_id: b.parentId || null,
+        order_in_parent: b.order,
+        depth: b.depth,
+        text_md: b.textMd,
+        text_plain: b.textPlain,
+      };
+      insBlock.run(block);
+
+      for (const l of b.links) {
+        insLink.run({ src_block_id: block.id, target: l.target, kind: l.kind });
+      }
+      for (const t of b.tags) {
+        insTag.run({ block_id: block.id, tag_text: t });
+      }
+      if (b.task) {
+        insTask.run({ block_id: block.id, state: b.task.state, due: b.task.due ?? null, priority: b.task.priority ?? null });
+      }
+    }
+
+    // Rebuild FTS quickly for MVP
+    db.prepare('DELETE FROM blocks_fts').run();
+    db.prepare('INSERT INTO blocks_fts (block_id, note_id, text) SELECT id, note_id, text_plain FROM blocks').run();
+  });
+
+  tx();
+}
+
+// =============================
+// src/renderer/lib/markdown/parse.ts (stub parser)
+// =============================
+import { visit } from 'unist-util-visit';
+import { v4 as uuidv4 } from 'uuid';
+
+export interface ParsedBlock {
+  id: string;
+  parentId?: string;
+  order: number;
+  depth: number; // 0 = top-level
+  textMd: string;
+  textPlain: string;
+  links: { kind: 'wikilink' | 'url'; target: string }[];
+  tags: string[];
+  task?: { state: 'TODO' | 'DOING' | 'DONE'; due?: string; priority?: 'A' | 'B' | 'C' };
+}
+
+export function parseMarkdownToBlocks(md: string): { blocks: ParsedBlock[] } {
+  // MVP deterministic line-based parser for list bullets
+  const lines = md.split(/\r?\n/);
+  const blocks: ParsedBlock[] = [];
+  const stack: { id: string; depth: number }[] = [];
+  let siblingOrders: number[] = []; // per depth
+
+  const ID_MARKER_RE = /<!--\s*\{id:\s*([0-9a-fA-F-]{36})\}\s*-->/;
+  const WIKILINK = /\[\[([^\]]+)\]\]/g;
+  const URL = /https?:\/\/\S+/g;
+  const TAG = /(^|\s)#([A-Za-z0-9\-_]+)/g;
+
+  for (const rawLine of lines) {
+    const m = rawLine.match(/^(\s*)-\s+(.*)$/);
+    if (!m) continue;
+    const indent = m[1] ?? '';
+    const rest = m[2] ?? '';
+    const depth = Math.floor((indent.replace(/\t/g, '  ').length) / 2);
+
+    // Ensure ID extraction
+    const idMatch = rawLine.match(ID_MARKER_RE);
+    const id = idMatch ? idMatch[1] : uuidv4(); // should already exist due to ensure pass
+
+    // Determine parent by depth
+    while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+    const parentId = stack.length ? stack[stack.length - 1].id : undefined;
+
+    // Order
+    siblingOrders[depth] = (siblingOrders[depth] ?? 0) + 1;
+    for (let d = depth + 1; d < siblingOrders.length; d++) siblingOrders[d] = 0; // reset deeper levels
+
+    // Task prefix
+    let textBody = rest;
+    let task: ParsedBlock['task'] | undefined;
+    const taskMatch = textBody.match(/^(TODO|DOING|DONE)\s+(.*)$/);
+    if (taskMatch) {
+      task = { state: taskMatch[1] as any };
+      textBody = taskMatch[2];
+    }
+
+    // Plain text normalization (strip markup minimal)
+    const textPlain = textBody
+      .replace(WIKILINK, (_, t) => t)
+      .replace(TAG, (_, s, t) => ` ${t}`)
+      .replace(URL, (u) => u);
+
+    const links: ParsedBlock['links'] = [];
+    let m2: RegExpExecArray | null;
+    while ((m2 = WIKILINK.exec(textBody))) links.push({ kind: 'wikilink', target: m2[1] });
+    while ((m2 = URL.exec(textBody))) links.push({ kind: 'url', target: m2[0] });
+
+    const tags: string[] = [];
+    while ((m2 = TAG.exec(textBody))) tags.push(m2[2]);
+
+    const block: ParsedBlock = {
+      id,
+      parentId,
+      order: siblingOrders[depth],
+      depth,
+      textMd: rawLine.trimEnd(),
+      textPlain: textPlain.trim(),
+      links,
+      tags,
+      task,
+    };
+
+    blocks.push(block);
+    stack.push({ id, depth });
+  }
+
+  return { blocks };
+}
+
+// =============================
+// src/renderer/lib/markdown/serialize.ts (stub)
+// =============================
+// For MVP, we primarily edit raw Markdown text in the editor and write it back directly.
+// If you choose to round-trip ProseMirror JSON <-> Markdown, add proper serializers here.
+export function serializePMToMarkdown(_pmDoc: unknown): string {
+  // TODO: implement if/when using rich JSON doc. For MVP, the editor can operate on plaintext.
+  return '';
+}
+
+// =============================
+// src/renderer/lib/tiptap/wikilink.ts (sketch)
+// =============================
+import { Node, mergeAttributes } from '@tiptap/core'
+
+export const Wikilink = Node.create({
+  name: 'wikilink',
+  inline: true,
+  group: 'inline',
+  atom: true,
+  addAttributes() { return { target: { default: '' } } },
+  parseHTML() { return [{ tag: 'span[data-wikilink]' }] },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-wikilink': 'true' }), `[[${HTMLAttributes.target}]]`]
+  },
+});
+
+// TODO: input rules to transform typing `[[Title]]` into this node and open a suggestion menu.
+
+// =============================
+// src/renderer/lib/tiptap/tasks.ts (sketch)
+// =============================
+// MVP keeps tasks as plain text prefixes. Provide a helper to cycle the prefix on the current line.
+export function cycleTaskStateInTextLine(line: string): string {
+  if (line.match(/^-\s+TODO\s+/)) return line.replace(/^-\s+TODO\s+/, '- DOING ');
+  if (line.match(/^-\s+DOING\s+/)) return line.replace(/^-\s+DOING\s+/, '- DONE ');
+  if (line.match(/^-\s+DONE\s+/)) return line; // already DONE
+  if (line.match(/^-\s+/)) return line.replace(/^-\s+/, '- TODO ');
+  return `- TODO ${line}`;
+}
+
+// =============================
+// src/renderer/components/NoteEditor.tsx (minimal)
+// =============================
+import React, { useEffect, useRef, useState } from 'react';
+import { cycleTaskStateInTextLine } from '../lib/tiptap/tasks';
+
+// MVP: plaintext textarea behaving like an outliner (indent/outdent + task toggles).
+// Swap with Tiptap later; this keeps stubs minimal and testable.
+
+type Props = {
+  initial: string;
+  onChange: (value: string) => void;
+  onCmdEnter?: () => void;
+};
+
+export default function NoteEditor({ initial, onChange }: Props) {
+  const [value, setValue] = useState(initial);
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => setValue(initial), [initial]);
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const ta = e.currentTarget;
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const before = value.slice(0, start);
+      const sel = value.slice(start, end);
+      const after = value.slice(end);
+
+      if (e.shiftKey) {
+        // outdent: remove up to 2 leading spaces from each selected line
+        const transformed = sel.replace(/^ {1,2}/gm, '');
+        const delta = sel.length - transformed.length;
+        const newVal = before + transformed + after;
+        setValue(newVal); onChange(newVal);
+        ta.selectionStart = start - Math.min(delta, 2);
+        ta.selectionEnd = start - Math.min(delta, 2) + transformed.length;
+      } else {
+        // indent: add two spaces at line starts
+        const transformed = sel.replace(/^/gm, '  ');
+        const delta = transformed.length - sel.length;
+        const newVal = before + transformed + after;
+        setValue(newVal); onChange(newVal);
+        ta.selectionStart = start + 2;
+        ta.selectionEnd = end + delta;
+      }
+      return;
+    }
+
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      // Cycle task state for current line
+      const pos = ta.selectionStart;
+      const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
+      const lineEnd = value.indexOf('\n', pos);
+      const endPos = lineEnd === -1 ? value.length : lineEnd;
+      const line = value.slice(lineStart, endPos);
+      const newLine = cycleTaskStateInTextLine(line);
+      const newVal = value.slice(0, lineStart) + newLine + value.slice(endPos);
+      setValue(newVal); onChange(newVal);
+      return;
+    }
+  }
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => { setValue(e.target.value); onChange(e.target.value); }}
+      onKeyDown={handleKeyDown}
+      spellCheck={false}
+      style={{ width: '100%', height: '80vh', fontFamily: 'ui-monospace, SFMono-Regular', fontSize: 14 }}
+    />
+  );
+}
+
+// =============================
+// src/renderer/components/Search.tsx (stub)
+// =============================
+import React, { useState } from 'react';
+
+export default function Search() {
+  const [q, setQ] = useState('');
+  // TODO: wire to IPC call that queries blocks_fts and returns snippets
+  return (
+    <div>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" />
+      <button>Go</button>
+      <div>{/* results */}</div>
+    </div>
+  );
+}
+
+// =============================
+// src/renderer/components/TasksView.tsx (stub)
+// =============================
+import React from 'react';
+export default function TasksView() {
+  // TODO: call IPC to run master tasks SQL and render list
+  return <div>Tasks will appear here…</div>;
+}
+
+// =============================
+// src/renderer/pages/Home.tsx (stub)
+// =============================
+import React from 'react';
+import Search from '../components/Search';
+import TasksView from '../components/TasksView';
+
+export default function Home() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
+      <aside>
+        <button>Today</button>
+        <button>New Note</button>
+        <button>Reindex</button>
+        <hr />
+        <Search />
+      </aside>
+      <main>
+        <TasksView />
+      </main>
+    </div>
+  );
+}
+
+// =============================
+// src/main/index.ts (Electron boot + IPC stubs)
+// =============================
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import path from 'node:path';
+import { openDb, getDb } from './db.js';
+import { ensureDailyNote, readFileAbs, writeFileAbs } from './fs.js';
+import { reindexFile } from './indexer.js';
+
+let win: BrowserWindow | null = null;
+
+async function createWindow() {
+  win = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+  const dev = process.env.VITE_DEV_SERVER_URL;
+  if (dev) await win.loadURL(dev);
+  else await win.loadFile(path.join(process.cwd(), 'dist/index.html'));
+}
+
+app.whenReady().then(async () => {
+  const vaultRoot = path.join(app.getPath('documents'), 'NotesVault');
+  const dbFile = path.join(vaultRoot, '.index', 'notes.db');
+  const schemaFile = path.join(process.cwd(), 'sqlite', 'schema.sql');
+  openDb(dbFile, schemaFile);
+  await createWindow();
+});
+
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+// IPC: Daily note path
+ipcMain.handle('vault.ensureDailyNote', (_e) => {
+  const vaultRoot = path.join(app.getPath('documents'), 'NotesVault');
+  return ensureDailyNote({ root: vaultRoot });
+});
+
+// IPC: Read/Write file
+ipcMain.handle('fs.read', (_e, filePath: string) => readFileAbs(filePath));
+ipcMain.handle('fs.write', (_e, filePath: string, content: string) => writeFileAbs(filePath, content));
+
+// IPC: Reindex a file
+ipcMain.handle('index.reindexFile', (_e, filePath: string) => {
+  reindexFile(filePath);
+  return true;
+});
+
+// IPC: Search FTS
+ipcMain.handle('search.blocks', (_e, query: string) => {
+  const db = getDb();
+  const stmt = db.prepare(`SELECT block_id, note_id, text FROM blocks_fts WHERE blocks_fts MATCH ? LIMIT 50`);
+  return stmt.all(query);
+});
+
+// IPC: Master tasks
+ipcMain.handle('tasks.master', () => {
+  const db = getDb();
+  const sql = `
+    SELECT t.state, b.text_plain AS text, n.title, n.path
+    FROM tasks t
+    JOIN blocks b ON b.id = t.block_id
+    JOIN notes n ON n.id = b.note_id
+    WHERE t.state IN ('TODO','DOING')
+    ORDER BY t.state, n.updated_at DESC
+  `;
+  return db.prepare(sql).all();
+});
+
+// =============================
+// src/renderer/main.tsx (wire IPC and UI)
+// =============================
+import React, { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import Home from './pages/Home';
+import NoteEditor from './components/NoteEditor';
+
+declare global { interface Window { api?: any } }
+const { ipcRenderer } = (window as any).require?.('electron') ?? { ipcRenderer: null };
+
+function App() {
+  const [filePath, setFilePath] = useState<string | null>(null);
+  const [content, setContent] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const p = await ipcRenderer.invoke('vault.ensureDailyNote');
+      setFilePath(p);
+      const c = await ipcRenderer.invoke('fs.read', p);
+      setContent(c);
+    })();
+  }, []);
+
+  async function save(val: string) {
+    if (!filePath) return;
+    setContent(val);
+    await ipcRenderer.invoke('fs.write', filePath, val);
+    await ipcRenderer.invoke('index.reindexFile', filePath);
+  }
+
+  return (
+    <div>
+      <h3>{filePath}</h3>
+      <NoteEditor initial={content} onChange={save} />
+    </div>
+  );
+}
+
+createRoot(document.getElementById('root')!).render(<App />);
+
+// =============================
+// vite.config.ts (very light stub)
+// =============================
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+});

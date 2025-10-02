@@ -1,0 +1,24 @@
+Daily Note Page Issues:
+
+- un-necessary border around text editor when it has focus. 
+- the Text control, plus the "status block" at the bottom of it should occupy 
+all available vertical space
+- need a back button to quickly go back to daily note page when clicking on wikilinks.
+- 
+
+Task Page Issues:
+- when a task is highlighted, clicking on the checkbox of a different and un-highlighted
+toggles the highlighted task.
+- checkbox needs to be bigger
+- both the checkbox and the "DOING" message should be in the gutter on the left of the task list. 
+The gutters width should not change when the task row is selected.
+- Get this error, intermittently when checking/unchecking checkbox:
+Failed to update source note: [Error: SQLITE_CONSTRAINT: FOREIGN KEY constraint failed] {
+  errno: 19,
+  code: 'SQLITE_CONSTRAINT'
+}
+Error occurred in handler for 'tasks.updateStatus': [Error: SQLITE_CONSTRAINT: FOREIGN KEY constraint failed] {
+  errno: 19,
+  code: 'SQLITE_CONSTRAINT'
+}
+- the "Keyboard Navigation" visual block that shows help on navigation is un-necessary. get rid of it.
