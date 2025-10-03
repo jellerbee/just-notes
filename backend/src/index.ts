@@ -5,6 +5,11 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Fix BigInt serialization for JSON responses
+(BigInt.prototype as any).toJSON = function() {
+  return Number(this);
+};
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

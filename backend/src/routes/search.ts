@@ -18,7 +18,7 @@ router.get('/', async (req, res, next) => {
     }
 
     // Use Postgres FTS with tsvector
-    // Raw query for FTS performance
+    // Cast text_tsv to tsvector since Prisma stores it as TEXT
     const bullets = await prisma.$queryRaw<Array<{
       id: string;
       note_id: string;
@@ -37,8 +37,8 @@ router.get('/', async (req, res, next) => {
       FROM bullets b
       JOIN notes n ON b.note_id = n.id
       WHERE b.redacted = false
-        AND b.text_tsv @@ plainto_tsquery('english', ${query})
-      ORDER BY ts_rank(b.text_tsv, plainto_tsquery('english', ${query})) DESC
+        AND b.text_tsv::tsvector @@ plainto_tsquery('english', ${query})
+      ORDER BY ts_rank(b.text_tsv::tsvector, plainto_tsquery('english', ${query})) DESC
       LIMIT 50
     `;
 
