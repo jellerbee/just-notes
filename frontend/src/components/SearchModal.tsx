@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { mockApi } from '@/lib/mockApi'
+import { api } from '@/lib/api'
 import type { SearchResult } from '@/types'
 
 interface SearchModalProps {
@@ -21,7 +21,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }
 
     setIsSearching(true)
-    mockApi.search(query).then((results) => {
+    api.search(query).then((results) => {
       setResults(results)
       setSelectedIndex(0)
       setIsSearching(false)

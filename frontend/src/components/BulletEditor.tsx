@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import ListItem from '@tiptap/extension-list-item'
 import { v4 as uuidv4 } from 'uuid'
-import { mockApi } from '@/lib/mockApi'
+import { api } from '@/lib/api'
 import type { Span } from '@/types'
 
 interface WikilinkSuggestion {
@@ -354,7 +354,7 @@ function BulletEditor({ noteId }: BulletEditorProps) {
       setFailedBulletText(null)
 
       // Commit to backend
-      const result = await mockApi.appendBullet(noteId, {
+      const result = await api.appendBullet(noteId, {
         bulletId,
         parentId,
         depth,
@@ -367,7 +367,7 @@ function BulletEditor({ noteId }: BulletEditorProps) {
       console.log('[Commit] Task detection - text:', text, 'isTask:', isTask)
       if (isTask) {
         // Create task annotation
-        await mockApi.appendAnnotation(bulletId, 'task', { state: 'open' })
+        await api.appendAnnotation(bulletId, 'task', { state: 'open' })
         console.log('[Commit] Created task annotation for bullet:', bulletId)
       }
 
@@ -489,7 +489,7 @@ function BulletEditor({ noteId }: BulletEditorProps) {
   // Load bullets on mount
   useEffect(() => {
     async function loadBullets() {
-      const bullets = await mockApi.getBullets(noteId)
+      const bullets = await api.getBullets(noteId)
 
       if (bullets.length > 0) {
         // Convert bullets to HTML and load into editor
@@ -549,7 +549,7 @@ function BulletEditor({ noteId }: BulletEditorProps) {
         })
 
         // Search for matching notes (empty query shows all notes)
-        mockApi.searchNotes(query || '').then((notes) => {
+        api.searchNotes(query || '').then((notes) => {
           const suggestions = notes.map(n => ({
             title: n.date,
             noteId: n.id
@@ -612,7 +612,7 @@ function BulletEditor({ noteId }: BulletEditorProps) {
         })
 
         // Search for matching tags
-        mockApi.searchTags(query || '').then((tags) => {
+        api.searchTags(query || '').then((tags) => {
           // If query is not empty and no matches, add option to create new tag
           const suggestions = [...tags]
           if (query && !tags.includes(query)) {

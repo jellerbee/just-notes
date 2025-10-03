@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { mockApi } from '@/lib/mockApi'
+import { api } from '@/lib/api'
 import type { TaskResult } from '@/types'
 
 interface TasksModalProps {
@@ -25,7 +25,7 @@ export function TasksModal({ isOpen, onClose }: TasksModalProps) {
 
     setIsLoading(true)
     setLocallyModified(new Set()) // Reset modified set on reload
-    mockApi.getTasks().then((results) => {
+    api.getTasks().then((results) => {
       setTasks(results)
       setSelectedIndex(0)
       setIsLoading(false)
@@ -108,7 +108,7 @@ export function TasksModal({ isOpen, onClose }: TasksModalProps) {
       newState = 'open'
     }
 
-    await mockApi.updateTaskState(task.bulletId, newState)
+    await api.updateTaskState(task.bulletId, newState)
 
     // Mark as locally modified so it stays visible despite filter
     setLocallyModified(prev => new Set(prev).add(task.bulletId))
@@ -125,7 +125,7 @@ export function TasksModal({ isOpen, onClose }: TasksModalProps) {
     // Toggle: open/doing ↔ done
     const newState = task.state === 'done' ? 'open' : 'done'
 
-    await mockApi.updateTaskState(task.bulletId, newState)
+    await api.updateTaskState(task.bulletId, newState)
 
     // Mark as locally modified so it stays visible despite filter
     setLocallyModified(prev => new Set(prev).add(task.bulletId))

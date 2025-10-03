@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { mockApi } from '@/lib/mockApi'
+import { api } from '@/lib/api'
 import type { BacklinkResult } from '@/types'
 
 interface BacklinksPanelProps {
@@ -16,7 +16,7 @@ export function BacklinksPanel({ isOpen, currentNoteDate }: BacklinksPanelProps)
     if (!isOpen) return
 
     setIsLoading(true)
-    mockApi.getBacklinks(currentNoteDate).then((results) => {
+    api.getBacklinks(currentNoteDate).then((results) => {
       setBacklinks(results)
       setIsLoading(false)
     })

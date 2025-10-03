@@ -1,0 +1,257 @@
+/**
+ * Real API client for backend
+ * Replaces mockApi with actual HTTP calls to backend server
+ */
+
+import type {
+  Note,
+  BulletPayload,
+  SearchResult,
+  BacklinkResult,
+  TaskResult,
+  AnnotationData,
+} from '@/types';
+
+// Configure API base URL (can be overridden via environment variable)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+class NotesAPI {
+  private clientId: string;
+  private clientSeq: number = 0;
+
+  constructor() {
+    // Generate a unique client ID for this session
+    this.clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Get today's date in YYYY-MM-DD format
+   */
+  private getTodayDate(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  /**
+   * Ensure today's note exists
+   */
+  async getTodayNote(): Promise<Note> {
+    const date = this.getTodayDate();
+    const response = await fetch(`${API_BASE_URL}/notes/${date}/ensure`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to ensure note: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      id: data.noteId,
+      date: date,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastSeq: data.lastSeq,
+    };
+  }
+
+  /**
+   * Append a bullet to a note
+   */
+  async appendBullet(
+    noteId: string,
+    payload: BulletPayload
+  ): Promise<{ orderSeq: number; lastSeq: number }> {
+    // Simulate network delay like mockApi
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Add clientSeq for idempotency
+    const payloadWithSeq = {
+      ...payload,
+      clientSeq: ++this.clientSeq,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/notes/${noteId}/bullets/append`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Client-Id': this.clientId,
+      },
+      body: JSON.stringify(payloadWithSeq),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || `Failed to append bullet: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get bullets for a note (optionally since a sequence number)
+   */
+  async getBullets(noteId: string, sinceSeq?: number): Promise<any[]> {
+    const url = sinceSeq
+      ? `${API_BASE_URL}/notes/${noteId}?sinceSeq=${sinceSeq}`
+      : `${API_BASE_URL}/notes/${noteId}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to get bullets: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.bullets || [];
+  }
+
+  /**
+   * Search across all bullets
+   */
+  async search(query: string): Promise<SearchResult[]> {
+    if (!query || query.length < 2) return [];
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const response = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`);
+
+    if (!response.ok) {
+      throw new Error(`Search failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get backlinks for a target (note date or entity)
+   */
+  async getBacklinks(target: string): Promise<BacklinkResult[]> {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const response = await fetch(
+      `${API_BASE_URL}/search/backlinks?target=${encodeURIComponent(target)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Backlinks failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Append an annotation to a bullet
+   */
+  async appendAnnotation(
+    bulletId: string,
+    type: string,
+    data: AnnotationData
+  ): Promise<any> {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const response = await fetch(`${API_BASE_URL}/annotations/append`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        bulletId,
+        type,
+        data,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to append annotation: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get all tasks from annotations
+   */
+  async getTasks(): Promise<TaskResult[]> {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    // For now, we'll need to implement a tasks endpoint on the backend
+    // This is a placeholder that queries the search endpoint
+    // TODO: Add GET /tasks endpoint to backend
+
+    // Temporary workaround: Return empty array
+    // The backend needs a dedicated /tasks endpoint
+    console.warn('[API] getTasks not yet implemented on backend');
+    return [];
+  }
+
+  /**
+   * Update task state
+   */
+  async updateTaskState(bulletId: string, state: 'open' | 'doing' | 'done'): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    await this.appendAnnotation(bulletId, 'task', { state });
+  }
+
+  /**
+   * Redact a bullet (soft delete)
+   */
+  async redact(bulletId: string, reason?: string): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const response = await fetch(`${API_BASE_URL}/redact`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        bulletId,
+        reason,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Redaction failed: ${response.statusText}`);
+    }
+  }
+
+  /**
+   * Search notes by date substring (for wikilink autocomplete)
+   */
+  async searchNotes(query: string): Promise<Note[]> {
+    // This is used for wikilink autocomplete - searching by date
+    // For now, we can use the search endpoint and extract unique notes
+    if (!query) return [];
+
+    const results = await this.search(query);
+    const uniqueNotes = new Map<string, Note>();
+
+    results.forEach(result => {
+      if (!uniqueNotes.has(result.noteId)) {
+        uniqueNotes.set(result.noteId, {
+          id: result.noteId,
+          date: result.date,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastSeq: 0,
+        });
+      }
+    });
+
+    return Array.from(uniqueNotes.values()).slice(0, 10);
+  }
+
+  /**
+   * Search tags (for tag autocomplete)
+   */
+  async searchTags(query: string): Promise<string[]> {
+    // Tags are stored as links with targetType='entity'
+    // For now, we'll use the search endpoint
+    // TODO: Add dedicated /tags endpoint to backend
+    console.warn('[API] searchTags not yet implemented on backend');
+    return [];
+  }
+}
+
+// Singleton instance
+export const api = new NotesAPI();

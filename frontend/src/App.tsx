@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { mockApi } from '@/lib/mockApi'
+import { api } from '@/lib/api'
 import BulletEditor from '@/components/BulletEditor'
 import { SearchModal } from '@/components/SearchModal'
 import { BacklinksPanel } from '@/components/BacklinksPanel'
@@ -14,7 +14,7 @@ function App() {
 
   useEffect(() => {
     // Load today's note on mount
-    mockApi.getTodayNote().then(setCurrentNote)
+    api.getTodayNote().then(setCurrentNote)
   }, [])
 
   // Global hotkeys
