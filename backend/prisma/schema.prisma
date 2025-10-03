@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Append log - source of truth for all operations
+model Append {
+  seq        BigInt   @id @default(autoincrement())
+  noteId     String   @map("note_id") @db.Uuid
+  kind       String   // 'bullet' | 'annotation' | 'redact'
+  payload    Json     // JSONB payload with operation-specific data
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("appends")
+}
+
+// Materialized view of notes (daily notes)
+model Note {
+  id         String   @id @default(uuid()) @db.Uuid
+  date       DateTime @unique @db.Date
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  lastSeq    BigInt   @map("last_seq")
+
+  bullets    Bullet[]
+
+  @@map("notes")
+}
+
+// Materialized view of bullets
+model Bullet {
+  id         String    @id @default(uuid()) @db.Uuid
+  noteId     String    @map("note_id") @db.Uuid
+  parentId   String?   @map("parent_id") @db.Uuid
+  depth      Int
+  orderSeq   BigInt    @map("order_seq")
+  text       String    @db.Text
+  spans      Json      @default("[]") // Array of span objects
+  redacted   Boolean   @default(false)
+  textTsv    String?   @map("text_tsv") // tsvector for full-text search (managed by DB trigger)
+
+  note       Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  parent     Bullet?   @relation("BulletHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Bullet[]  @relation("BulletHierarchy")
+
+  annotations Annotation[]
+  links       Link[]
+
+  @@index([noteId], map: "idx_bullets_note")
+  @@index([parentId], map: "idx_bullets_parent")
+  @@map("bullets")
+}
+
+// Annotations (tasks, entities, labels, pins)
+model Annotation {
+  id         BigInt   @id @default(autoincrement())
+  bulletId   String   @map("bullet_id") @db.Uuid
+  type       String   // 'task' | 'entity' | 'link' | 'label' | 'pin'
+  data       Json     // JSONB with annotation-specific data
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  bullet     Bullet   @relation(fields: [bulletId], references: [id], onDelete: Cascade)
+
+  @@index([bulletId], map: "idx_annotations_bullet")
+  @@map("annotations")
+}
+
+// Links extracted from spans (wikilinks, URLs, tags)
+model Link {
+  id           BigInt   @id @default(autoincrement())
+  bulletId     String   @map("bullet_id") @db.Uuid
+  targetType   String   @map("target_type") // 'note' | 'entity' | 'url'
+  targetValue  String   @map("target_value") @db.Text
+
+  bullet       Bullet   @relation(fields: [bulletId], references: [id], onDelete: Cascade)
+
+  @@index([bulletId], map: "idx_links_bullet")
+  @@index([targetType, targetValue], map: "idx_links_target")
+  @@map("links")
+}
+
+// Idempotency tracking for client retries
+model IdempotencyKey {
+  id         BigInt   @id @default(autoincrement())
+  clientId   String   @map("client_id")
+  clientSeq  Int      @map("client_seq")
+  bulletId   String   @map("bullet_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([clientId, clientSeq])
+  @@map("idempotency_keys")
+}
