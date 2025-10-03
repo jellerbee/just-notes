@@ -4,6 +4,8 @@
 
 **Goal:** Local desktop app (Tauri or Electron + React) that saves notes as Markdown files, maintains a fast SQLite index for search/links/tasks, and gives you an outliner editor.
 
+NOTE: this spec is for the MVP just to validate the concept.  Production MVP spec is: jnotes_V1.1_mods.md. Implementation plan is: jnotes_V1.1_plan.txt
+
 **In scope (MVP):**
 
 - Daily page auto-creation (`YYYY-MM-DD.md`)

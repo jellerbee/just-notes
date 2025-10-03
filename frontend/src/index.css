@@ -1,0 +1,134 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-size: 16px;
+
+  color-scheme: light dark;
+  color: rgba(0, 0, 0, 0.87);
+  background-color: #ffffff;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: rgba(255, 255, 255, 0.87);
+    background-color: #1a1a1a;
+  }
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+/* Tiptap editor - invisible, inline with content */
+.ProseMirror {
+  outline: none;
+  padding: 2rem 3rem;
+  min-height: 100vh;
+}
+
+.ProseMirror p {
+  margin: 0;
+  padding: 0;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ProseMirror ul li {
+  position: relative;
+  padding-left: 1.5em;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ProseMirror ul li::marker {
+  content: none;
+}
+
+.ProseMirror ul li::before {
+  content: '•';
+  position: absolute;
+  left: 0.3em;
+  color: #666;
+}
+
+.ProseMirror ul ul {
+  margin-left: 1.5em;
+}
+
+/* Committed bullets - slightly dimmed to indicate read-only */
+.ProseMirror li[data-committed="true"] > p {
+  color: rgba(0, 0, 0, 0.5);
+  opacity: 0.7;
+}
+
+.ProseMirror li[data-committed="true"] {
+  cursor: default;
+}
+
+/* Wikilink styles */
+.wikilink {
+  color: #0969da;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.wikilink:hover {
+  text-decoration: underline;
+}
+
+/* Tag styles */
+.tag {
+  color: #8250df;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ProseMirror ul li::before {
+    color: #aaa;
+  }
+
+  .ProseMirror li[data-committed="true"] > p {
+    color: rgba(255, 255, 255, 0.5);
+    opacity: 0.7;
+  }
+
+  .wikilink {
+    color: #58a6ff;
+  }
+
+  .tag {
+    color: #bc8cff;
+  }
+}
