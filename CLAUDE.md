@@ -143,13 +143,34 @@ npm start                    # Build and run Electron app
 
 ## Development Workflow
 
-**Current Development Status:**
-- Core MVP is functionally complete and ready for real-world testing
-- User planning to use for 1 week to validate workflow and identify friction points
-- Future development will be driven by actual usage patterns and needs
+**Workflow Process:**
+1. **Engineering Spec** → `docs/<project>_eng_spec.md` - Technical specification and architecture
+2. **Implementation Plan** → `docs/<project>_impl_plan.md` - Phased development roadmap (reviewed by Claude, broken into phases)
+3. **Iterate by Phase** → Work through phases with "DocStops" at key boundaries
+4. **DocStops** → Update `CLAUDE.md` and `SESSION_CONTEXT.md` to capture progress
+
+**Git Branching Strategy:**
+- **One branch per phase** - Named `phase-N-description` (e.g., `phase-1-backend-api`)
+- **Tag on completion** - Semantic versioning (e.g., `v0.3-frontend-complete`)
+- **Merge to main** - When phase is complete and tested
+- **Easy rollback** - Can always return to tagged states
+
+**Current Development Status (Updated 2025-10-03):**
+- ✅ **v0.3-frontend-complete** - Phase 2 & 3 complete (tagged)
+  - Append-only bullet editor with depth tracking
+  - Wikilink and tag autocomplete
+  - Global search (Cmd+K), backlinks (Cmd+B), tasks (Ctrl+T)
+- 🚧 **Phase 1 (In Progress)** - Backend API integration
+  - Branch: `phase-1-backend-api`
+  - Replace mockApi with real cloud persistence
 
 **Development Commands:**
 ```bash
-npm start              # Development build and run (recommended)
-pkill -f "notes-mvp"   # Clean up hung processes if needed
+# Frontend (React + Vite)
+cd frontend
+npm run dev              # Start Vite dev server on port 5173
+
+# MVP (Electron)
+npm start                # Development build and run (recommended)
+pkill -f "notes-mvp"     # Clean up hung processes if needed
 ```

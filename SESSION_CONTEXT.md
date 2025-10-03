@@ -1,13 +1,33 @@
-# jnotes Frontend Editor - Session Context
+# jnotes - Session Context
 
 **Date:** 2025-10-03
-**Status:** ✅ Phase 3 Complete - Search, Backlinks, and Tasks implemented
+**Status:** 🚧 Phase 1 Starting - Backend API Integration
+**Branch:** `phase-1-backend-api`
 
 ---
 
-## Session Summary
+## Current Phase: Phase 1 - Backend API
 
-**Phase 2 Complete:**
+**Goal:** Replace mockApi with real cloud persistence layer
+
+**Previous Phases:**
+- ✅ **Phase 2 Complete** (v0.3-frontend-complete) - Bullet editor core
+- ✅ **Phase 3 Complete** (v0.3-frontend-complete) - Search, backlinks, tasks
+
+**Phase 1 Tasks:**
+1. ⏳ Design backend architecture and API contracts
+2. ⏳ Implement cloud storage adapter (TBD: Firebase, Supabase, or custom)
+3. ⏳ Replace mockApi with real backend calls
+4. ⏳ Add authentication and user management
+5. ⏳ Implement real-time sync if needed
+6. ⏳ Test and validate data persistence
+
+---
+
+## Completed Phases
+
+### Phase 2 - Bullet Editor Core ✅
+
 1. ✅ Append-only committed bullets (read-only after Enter)
 2. ✅ Tab/Shift+Tab visual indenting with dynamic depth/parent tracking
 3. ✅ Wikilink autocomplete with `[[` trigger
@@ -15,7 +35,8 @@
 5. ✅ Error handling with retry banner
 6. ✅ Visual styling to distinguish committed vs uncommitted bullets
 
-**Phase 3 Complete:**
+### Phase 3 - Search, Backlinks, Tasks ✅
+
 1. ✅ Global search (Cmd+K) - Search across all committed bullets
 2. ✅ Backlinks panel (Cmd+B) - Show bullets referencing current note
 3. ✅ Master tasks view (Ctrl+T) - Keyboard-first task management
@@ -258,13 +279,32 @@ All core functionality working as designed.
 
 ---
 
-## Next Steps (Future Phases)
+## Git Workflow
 
-1. **Phase 1:** Wire up to real cloud persistence (replace mockApi)
-2. **Daily note navigation:** Add date picker and arrow keys to navigate between dates
-3. **Navigation from search/tasks:** Implement scroll-to-bullet functionality
-4. **Polish autocomplete:** Better positioning, fuzzy search
-5. **Annotations API:** Manual task markup UI (skipped for now - 4.4)
+**Branch Strategy:**
+- One branch per phase: `phase-N-description`
+- Tag on completion: `vX.Y-description`
+- Merge to main when tested
+
+**Current State:**
+- ✅ Tagged `v0.3-frontend-complete` on main
+- 🚧 Working on branch `phase-1-backend-api`
+
+## Next Steps
+
+**Immediate (Phase 1):**
+1. Review Phase 1 requirements from implementation plan
+2. Choose backend provider (Firebase, Supabase, custom API)
+3. Design API contracts matching mockApi interface
+4. Implement backend adapter layer
+5. Add authentication
+6. Test and validate persistence
+
+**Future Phases:**
+- **Daily note navigation:** Add date picker and arrow keys to navigate between dates
+- **Navigation from search/tasks:** Implement scroll-to-bullet functionality
+- **Polish autocomplete:** Better positioning, fuzzy search
+- **Annotations API:** Manual task markup UI (deferred from 4.4)
 
 ---
 
