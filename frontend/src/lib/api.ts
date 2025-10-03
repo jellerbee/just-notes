@@ -216,29 +216,29 @@ class NotesAPI {
   }
 
   /**
-   * Search notes by date substring (for wikilink autocomplete)
+   * Search wikilink targets (for autocomplete)
    */
   async searchNotes(query: string): Promise<Note[]> {
-    // This is used for wikilink autocomplete - searching by date
-    // For now, we can use the search endpoint and extract unique notes
-    if (!query) return [];
+    // Get unique wikilink targets from the links table
+    const response = await fetch(
+      `${API_BASE_URL}/search/wikilinks?q=${encodeURIComponent(query || '')}`
+    );
 
-    const results = await this.search(query);
-    const uniqueNotes = new Map<string, Note>();
+    if (!response.ok) {
+      console.warn('[API] Wikilinks search failed, returning empty');
+      return [];
+    }
 
-    results.forEach(result => {
-      if (!uniqueNotes.has(result.noteId)) {
-        uniqueNotes.set(result.noteId, {
-          id: result.noteId,
-          date: result.date,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastSeq: 0,
-        });
-      }
-    });
+    const targets: string[] = await response.json();
 
-    return Array.from(uniqueNotes.values()).slice(0, 10);
+    // Convert targets to Note format for compatibility
+    return targets.map(target => ({
+      id: target, // Use target as ID for now
+      date: target,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastSeq: 0,
+    }));
   }
 
   /**

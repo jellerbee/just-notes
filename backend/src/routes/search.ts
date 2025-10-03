@@ -103,4 +103,38 @@ router.get('/backlinks', async (req, res, next) => {
   }
 });
 
+/**
+ * GET /wikilinks?q=query
+ * Search for wikilink targets (for autocomplete)
+ */
+router.get('/wikilinks', async (req, res, next) => {
+  try {
+    const query = req.query.q as string;
+
+    // Get unique wikilink targets
+    const links = await prisma.link.findMany({
+      where: {
+        targetType: 'note',
+        ...(query && query.length > 0 && {
+          targetValue: {
+            contains: query,
+            mode: 'insensitive',
+          },
+        }),
+      },
+      select: {
+        targetValue: true,
+      },
+      distinct: ['targetValue'],
+      take: 10,
+    });
+
+    const targets = links.map(link => link.targetValue);
+    console.log(`[Search] Found ${targets.length} wikilink targets for "${query}"`);
+    res.json(targets);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
