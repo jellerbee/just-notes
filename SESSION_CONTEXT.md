@@ -1,30 +1,45 @@
 # jnotes - Session Context
 
 **Date:** 2025-10-03
-**Status:** 🚧 Phase 1 Starting - Backend API Integration
+**Status:** ✅ Phase 1 Complete - Backend API Ready
 **Branch:** `phase-1-backend-api`
 
 ---
 
-## Current Phase: Phase 1 - Backend API
-
-**Goal:** Replace mockApi with real cloud persistence layer
-
-**Previous Phases:**
-- ✅ **Phase 2 Complete** (v0.3-frontend-complete) - Bullet editor core
-- ✅ **Phase 3 Complete** (v0.3-frontend-complete) - Search, backlinks, tasks
-
-**Phase 1 Tasks:**
-1. ⏳ Design backend architecture and API contracts
-2. ⏳ Implement cloud storage adapter (TBD: Firebase, Supabase, or custom)
-3. ⏳ Replace mockApi with real backend calls
-4. ⏳ Add authentication and user management
-5. ⏳ Implement real-time sync if needed
-6. ⏳ Test and validate data persistence
-
----
-
 ## Completed Phases
+
+### Phase 1 - Backend API Foundation ✅
+
+**Implemented:**
+1. ✅ Node/Express + TypeScript backend
+2. ✅ Prisma ORM with Postgres schema
+3. ✅ Append log + materialized tables architecture
+4. ✅ Core API endpoints (ensure, append, get, redact)
+5. ✅ Indexer service (spans parsing, FTS updates, link extraction)
+6. ✅ Search and backlinks endpoints
+7. ✅ Unit tests for idempotency and concurrent appends
+
+**Architecture:**
+- **Append log** (`appends`) - Source of truth for all operations
+- **Materialized tables** - `notes`, `bullets`, `annotations`, `links`
+- **Full-text search** - Postgres tsvector with GIN indexes
+- **Automatic indexing** - DB triggers update FTS on bullet insert/update
+- **Idempotency** - clientSeq tracking prevents duplicate appends
+
+**API Endpoints:**
+- `POST /notes/:date/ensure` - Create daily note
+- `GET /notes/:noteId` - Get bullets (with `?sinceSeq=X`)
+- `POST /notes/:noteId/bullets/append` - Append single bullet
+- `POST /notes/:noteId/bullets/appendBatch` - Bulk append
+- `POST /annotations/append` - Add task/entity annotations
+- `POST /redact` - Soft delete bullets
+- `GET /search?q=query` - FTS search
+- `GET /search/backlinks?target=NoteName` - Backlinks
+
+**Next Steps:**
+- ⏳ Frontend adapter to replace mockApi
+- ⏳ Authentication (Phase 5)
+- ⏳ Deploy to Render.com (Phase 5)
 
 ### Phase 2 - Bullet Editor Core ✅
 
