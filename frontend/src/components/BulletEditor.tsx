@@ -348,78 +348,80 @@ function BulletEditor({ noteId }: BulletEditorProps) {
     // Extract spans (wikilinks, tags, URLs)
     const spans = extractSpans(text)
 
-    try {
-      // Clear any previous errors
-      setCommitError(null)
-      setFailedBulletText(null)
+    // Clear any previous errors
+    setCommitError(null)
+    setFailedBulletText(null)
 
-      // Commit to backend
-      const result = await api.appendBullet(noteId, {
-        bulletId,
-        parentId,
-        depth,
-        text,
-        spans,
+    // OPTIMISTIC UI UPDATE - Mark as committed and create new bullet immediately
+    editor.chain()
+      .command(({ tr, state }) => {
+        // Mark current bullet as committed
+        tr.setNodeMarkup(listItemPos, null, {
+          ...listItemNode.attrs,
+          'data-bullet-id': bulletId,
+          'data-committed': 'true',
+        })
+        return true
       })
-
-      // Check if this is a task (starts with [ ] or [])
-      const isTask = /^\[\s*\]/.test(text.trim())
-      console.log('[Commit] Task detection - text:', text, 'isTask:', isTask)
-      if (isTask) {
-        // Create task annotation
-        await api.appendAnnotation(bulletId, 'task', { state: 'open' })
-        console.log('[Commit] Created task annotation for bullet:', bulletId)
-      }
-
-      // Mark this list item as committed
-      editor.chain()
-        .command(({ tr, state }) => {
-          // Mark current bullet as committed
-          tr.setNodeMarkup(listItemPos, null, {
-            ...listItemNode.attrs,
-            'data-bullet-id': bulletId,
-            'data-committed': 'true',
-          })
-          return true
-        })
-        .splitListItem('listItem')
-        .command(({ tr, state }) => {
-          // Clear committed attributes from the new bullet (splitListItem copies attrs)
-          // Find the new list item
-          let newListItemPos = -1
-          state.doc.descendants((node, pos) => {
-            if (node.type.name === 'listItem' && pos > listItemPos) {
-              newListItemPos = pos
-              return false
-            }
-          })
-
-          if (newListItemPos >= 0) {
-            const newNode = state.doc.nodeAt(newListItemPos)
-            if (newNode) {
-              const cleanAttrs = { ...newNode.attrs }
-              delete cleanAttrs['data-committed']
-              delete cleanAttrs['data-bullet-id']
-              tr.setNodeMarkup(newListItemPos, null, cleanAttrs)
-            }
+      .splitListItem('listItem')
+      .command(({ tr, state }) => {
+        // Clear committed attributes from the new bullet (splitListItem copies attrs)
+        // Find the new list item
+        let newListItemPos = -1
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === 'listItem' && pos > listItemPos) {
+            newListItemPos = pos
+            return false
           }
-          return true
         })
-        .focus()
-        .run()
 
-      // Track this as last committed
-      lastCommittedIdRef.current = bulletId
+        if (newListItemPos >= 0) {
+          const newNode = state.doc.nodeAt(newListItemPos)
+          if (newNode) {
+            const cleanAttrs = { ...newNode.attrs }
+            delete cleanAttrs['data-committed']
+            delete cleanAttrs['data-bullet-id']
+            tr.setNodeMarkup(newListItemPos, null, cleanAttrs)
+          }
+        }
+        return true
+      })
+      .focus()
+      .run()
 
-    } catch (error) {
-      console.error('[Editor] Failed to commit bullet:', error)
+    // Track this as last committed
+    lastCommittedIdRef.current = bulletId
 
-      // Show error banner and save failed text for retry
-      setCommitError(error instanceof Error ? error.message : 'Failed to commit bullet')
-      setFailedBulletText(text)
+    // ASYNC BACKEND SAVE - Don't wait for this
+    ;(async () => {
+      try {
+        // Commit to backend
+        await api.appendBullet(noteId, {
+          bulletId,
+          parentId,
+          depth,
+          text,
+          spans,
+        })
 
-      // Don't create new bullet or mark as committed - keep current bullet editable for retry
-    }
+        // Check if this is a task (starts with [ ] or [])
+        const isTask = /^\[\s*\]/.test(text.trim())
+        console.log('[Commit] Task detection - text:', text, 'isTask:', isTask)
+        if (isTask) {
+          // Create task annotation
+          await api.appendAnnotation(bulletId, 'task', { state: 'open' })
+          console.log('[Commit] Created task annotation for bullet:', bulletId)
+        }
+
+        console.log('[Commit] Backend save successful for bullet:', bulletId)
+      } catch (error) {
+        console.error('[Editor] Failed to commit bullet to backend:', error)
+
+        // Show error banner and save failed text for retry
+        setCommitError(error instanceof Error ? error.message : 'Failed to commit bullet')
+        setFailedBulletText(text)
+      }
+    })()
   }
 
   // Retry failed commit
