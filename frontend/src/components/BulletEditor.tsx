@@ -113,7 +113,7 @@ function BulletEditor({ noteId }: BulletEditorProps) {
             setSelectedTagIndex((prev) => (prev > 0 ? prev - 1 : prev))
             return true
           }
-          if (event.key === 'Enter' || event.key === 'Tab') {
+          if (event.key === 'Enter') {
             event.preventDefault()
             if (tagSuggestions[selectedTagIndex]) {
               selectTagSuggestion(tagSuggestions[selectedTagIndex])
@@ -143,7 +143,7 @@ function BulletEditor({ noteId }: BulletEditorProps) {
             setSelectedSuggestionIndex((prev) => (prev > 0 ? prev - 1 : prev))
             return true
           }
-          if (event.key === 'Enter' || event.key === 'Tab') {
+          if (event.key === 'Enter') {
             event.preventDefault()
             if (wikilinkSuggestions[selectedSuggestionIndex]) {
               selectWikilinkSuggestion(wikilinkSuggestions[selectedSuggestionIndex])
@@ -371,52 +371,45 @@ function BulletEditor({ noteId }: BulletEditorProps) {
         console.log('[Commit] Created task annotation for bullet:', bulletId)
       }
 
-      // Mark this list item as committed by adding data attribute
-      const tr = state.tr
-      tr.setNodeMarkup(listItemPos, null, {
-        ...listItemNode.attrs,
-        'data-bullet-id': bulletId,
-        'data-committed': 'true',
-      })
+      // Mark this list item as committed
+      editor.chain()
+        .command(({ tr, state }) => {
+          // Mark current bullet as committed
+          tr.setNodeMarkup(listItemPos, null, {
+            ...listItemNode.attrs,
+            'data-bullet-id': bulletId,
+            'data-committed': 'true',
+          })
+          return true
+        })
+        .splitListItem('listItem')
+        .command(({ tr, state }) => {
+          // Clear committed attributes from the new bullet (splitListItem copies attrs)
+          // Find the new list item
+          let newListItemPos = -1
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === 'listItem' && pos > listItemPos) {
+              newListItemPos = pos
+              return false
+            }
+          })
 
-      // Make it non-editable by wrapping in a special mark
-      // For now, we'll just visually indicate it's committed
-      view.dispatch(tr)
+          if (newListItemPos >= 0) {
+            const newNode = state.doc.nodeAt(newListItemPos)
+            if (newNode) {
+              const cleanAttrs = { ...newNode.attrs }
+              delete cleanAttrs['data-committed']
+              delete cleanAttrs['data-bullet-id']
+              tr.setNodeMarkup(newListItemPos, null, cleanAttrs)
+            }
+          }
+          return true
+        })
+        .focus()
+        .run()
 
       // Track this as last committed
       lastCommittedIdRef.current = bulletId
-
-      // Create new editable bullet
-      editor.commands.splitListItem('listItem')
-
-      // Clear the committed flag on the new bullet (splitListItem copies attrs)
-      // Find the new list item (the one right after the one we just committed)
-      const newState = editor.state
-      let newListItemPos = -1
-
-      newState.doc.descendants((node, pos) => {
-        // Find first listItem after the committed one
-        if (node.type.name === 'listItem' && pos > listItemPos) {
-          newListItemPos = pos
-          return false // Stop searching
-        }
-      })
-
-      if (newListItemPos >= 0) {
-        const newTr = newState.tr
-        const newNode = newState.doc.nodeAt(newListItemPos)
-        if (newNode) {
-          // Clear custom committed attributes but keep other attributes
-          const cleanAttrs = { ...newNode.attrs }
-          delete cleanAttrs['data-committed']
-          delete cleanAttrs['data-bullet-id']
-
-          newTr.setNodeMarkup(newListItemPos, null, cleanAttrs)
-          editor.view.dispatch(newTr)
-        }
-      }
-
-      editor.commands.focus()
 
     } catch (error) {
       console.error('[Editor] Failed to commit bullet:', error)
