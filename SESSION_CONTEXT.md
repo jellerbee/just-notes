@@ -33,13 +33,24 @@
 - `POST /notes/:noteId/bullets/appendBatch` - Bulk append
 - `POST /annotations/append` - Add task/entity annotations
 - `POST /redact` - Soft delete bullets
-- `GET /search?q=query` - FTS search
+- `GET /search?q=query` - FTS search across bullets
 - `GET /search/backlinks?target=NoteName` - Backlinks
+- `GET /search/wikilinks?q=query` - Wikilink targets for autocomplete
+- `GET /search/tasks` - All tasks with latest state
 
-**Next Steps:**
-- ⏳ Frontend adapter to replace mockApi
+**Frontend Integration:**
+- ✅ Replaced mockApi with real API client
+- ✅ Optimistic UI updates (instant commit response)
+- ✅ Wikilink autocomplete searches real link targets
+- ✅ Tag autocomplete (placeholder)
+- ✅ Tasks modal shows real tasks from annotations
+- ✅ All features working with Render Postgres database
+
+**Deployment:**
+- ✅ Backend connected to Render Postgres
+- ✅ FTS triggers applied
+- ⏳ Deploy backend to Render.com (Phase 5)
 - ⏳ Authentication (Phase 5)
-- ⏳ Deploy to Render.com (Phase 5)
 
 ### Phase 2 - Bullet Editor Core ✅
 
