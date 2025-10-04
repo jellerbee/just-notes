@@ -174,14 +174,13 @@ class NotesAPI {
   async getTasks(): Promise<TaskResult[]> {
     await new Promise((resolve) => setTimeout(resolve, 30));
 
-    // For now, we'll need to implement a tasks endpoint on the backend
-    // This is a placeholder that queries the search endpoint
-    // TODO: Add GET /tasks endpoint to backend
+    const response = await fetch(`${API_BASE_URL}/search/tasks`);
 
-    // Temporary workaround: Return empty array
-    // The backend needs a dedicated /tasks endpoint
-    console.warn('[API] getTasks not yet implemented on backend');
-    return [];
+    if (!response.ok) {
+      throw new Error(`Get tasks failed: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 
   /**

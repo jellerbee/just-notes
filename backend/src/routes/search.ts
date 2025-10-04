@@ -137,4 +137,62 @@ router.get('/wikilinks', async (req, res, next) => {
   }
 });
 
+/**
+ * GET /tasks
+ * Get all tasks from annotations
+ */
+router.get('/tasks', async (req, res, next) => {
+  try {
+    // Get all task annotations with their bullets
+    const annotations = await prisma.annotation.findMany({
+      where: {
+        type: 'task',
+      },
+      include: {
+        bullet: {
+          include: {
+            note: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Group by bulletId and get latest state for each task
+    const taskMap = new Map();
+
+    annotations.forEach(annotation => {
+      const bulletId = annotation.bulletId;
+
+      // Skip if bullet is redacted
+      if (annotation.bullet.redacted) return;
+
+      // Keep the latest annotation for each bullet (ordered by createdAt desc)
+      if (!taskMap.has(bulletId)) {
+        const state = (annotation.data as any).state || 'open';
+        taskMap.set(bulletId, {
+          bulletId: annotation.bullet.id,
+          noteId: annotation.bullet.noteId,
+          date: annotation.bullet.note.date.toISOString().split('T')[0],
+          text: annotation.bullet.text,
+          state,
+          depth: annotation.bullet.depth,
+        });
+      }
+    });
+
+    const tasks = Array.from(taskMap.values());
+
+    // Sort by date descending (newest first)
+    tasks.sort((a, b) => b.date.localeCompare(a.date));
+
+    console.log(`[Search] Found ${tasks.length} tasks`);
+    res.json(tasks);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
