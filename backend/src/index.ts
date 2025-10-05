@@ -14,7 +14,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+app.use(cors({
+  origin: corsOrigin,
+  credentials: true,
+}));
 app.use(express.json());
 
 // Health check endpoint
@@ -23,16 +27,21 @@ app.get('/health', (req, res) => {
 });
 
 // Import routes
+import authRouter from './routes/auth';
 import notesRouter from './routes/notes';
 import annotationsRouter from './routes/annotations';
 import redactRouter from './routes/redact';
 import searchRouter from './routes/search';
+import { authenticateToken } from './middleware/auth';
 
-// Routes
-app.use('/notes', notesRouter);
-app.use('/annotations', annotationsRouter);
-app.use('/redact', redactRouter);
-app.use('/search', searchRouter);
+// Public routes (no auth required)
+app.use('/auth', authRouter);
+
+// Protected routes (auth required in production)
+app.use('/notes', authenticateToken, notesRouter);
+app.use('/annotations', authenticateToken, annotationsRouter);
+app.use('/redact', authenticateToken, redactRouter);
+app.use('/search', authenticateToken, searchRouter);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

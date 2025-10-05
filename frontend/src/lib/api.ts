@@ -11,6 +11,7 @@ import type {
   TaskResult,
   AnnotationData,
 } from '@/types';
+import { auth } from './auth';
 
 // Configure API base URL (can be overridden via environment variable)
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -22,6 +23,23 @@ class NotesAPI {
   constructor() {
     // Generate a unique client ID for this session
     this.clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Get headers with auth token if available
+   */
+  private getHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'X-Client-Id': this.clientId,
+    };
+
+    const token = auth.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
   }
 
   /**
@@ -72,10 +90,7 @@ class NotesAPI {
 
     const response = await fetch(`${API_BASE_URL}/notes/${noteId}/bullets/append`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Client-Id': this.clientId,
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(payloadWithSeq),
     });
 
@@ -151,9 +166,7 @@ class NotesAPI {
 
     const response = await fetch(`${API_BASE_URL}/annotations/append`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify({
         bulletId,
         type,
@@ -200,9 +213,7 @@ class NotesAPI {
 
     const response = await fetch(`${API_BASE_URL}/redact`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify({
         bulletId,
         reason,

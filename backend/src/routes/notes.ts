@@ -117,8 +117,8 @@ router.post('/:noteId/bullets/append', async (req, res, next) => {
           where: { id: existing.bulletId },
         });
         return res.json({
-          orderSeq: bullet?.orderSeq || 0,
-          lastSeq: note.lastSeq,
+          orderSeq: Number(bullet?.orderSeq || 0),
+          lastSeq: Number(note.lastSeq),
         } as AppendResponse);
       }
     }
@@ -196,8 +196,8 @@ router.post('/:noteId/bullets/appendBatch', async (req, res, next) => {
     }
 
     // Update note's lastSeq
-    const lastSeq = results[results.length - 1]?.lastSeq || note.lastSeq;
-    await Indexer.updateNoteSeq(noteId, lastSeq);
+    const lastSeq = results[results.length - 1]?.lastSeq || Number(note.lastSeq);
+    await Indexer.updateNoteSeq(noteId, Number(lastSeq));
 
     res.json({
       count: results.length,
