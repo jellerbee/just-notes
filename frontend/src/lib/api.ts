@@ -244,11 +244,17 @@ class NotesAPI {
    * Search tags (for tag autocomplete)
    */
   async searchTags(query: string): Promise<string[]> {
-    // Tags are stored as links with targetType='entity'
-    // For now, we'll use the search endpoint
-    // TODO: Add dedicated /tags endpoint to backend
-    console.warn('[API] searchTags not yet implemented on backend');
-    return [];
+    const response = await fetch(
+      `${API_BASE_URL}/search/tags?q=${encodeURIComponent(query || '')}`
+    );
+
+    if (!response.ok) {
+      console.warn('[API] Tags search failed, returning empty');
+      return [];
+    }
+
+    const targets: string[] = await response.json();
+    return targets;
   }
 }
 

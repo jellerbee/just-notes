@@ -17,6 +17,52 @@ function App() {
     api.getTodayNote().then(setCurrentNote)
   }, [])
 
+  // Navigate to a different note by date, optionally scrolling to a specific bullet
+  const navigateToNote = async (date: string, bulletId?: string) => {
+    try {
+      const response = await fetch(`http://localhost:3000/notes/${date}/ensure`, {
+        method: 'POST',
+      })
+      if (response.ok) {
+        const data = await response.json()
+
+        console.log('[App] Navigating to note:', date, 'noteId:', data.noteId)
+
+        // Always update the note - BulletEditor will handle empty notes
+        setCurrentNote({
+          id: data.noteId,
+          date: date,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastSeq: data.lastSeq,
+          scrollToBulletId: bulletId, // Pass bulletId for scrolling
+        })
+      } else {
+        console.error('[App] Failed to ensure note, status:', response.status)
+      }
+    } catch (error) {
+      console.error('[App] Failed to navigate to note:', error)
+      // Don't change the current note if navigation failed
+    }
+  }
+
+  // Navigate to previous/next day
+  const navigatePreviousDay = () => {
+    if (!currentNote) return
+    const currentDate = new Date(currentNote.date + 'T00:00:00')
+    currentDate.setDate(currentDate.getDate() - 1)
+    const prevDate = currentDate.toISOString().split('T')[0]
+    navigateToNote(prevDate)
+  }
+
+  const navigateNextDay = () => {
+    if (!currentNote) return
+    const currentDate = new Date(currentNote.date + 'T00:00:00')
+    currentDate.setDate(currentDate.getDate() + 1)
+    const nextDate = currentDate.toISOString().split('T')[0]
+    navigateToNote(nextDate)
+  }
+
   // Global hotkeys
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -47,10 +93,24 @@ function App() {
 
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'auto' }}>
-      <BulletEditor noteId={currentNote.id} />
-      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <BulletEditor
+        noteId={currentNote.id}
+        noteDate={currentNote.date}
+        scrollToBulletId={currentNote.scrollToBulletId}
+        onNavigatePrevious={navigatePreviousDay}
+        onNavigateNext={navigateNextDay}
+      />
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onNavigate={navigateToNote}
+      />
       <BacklinksPanel isOpen={isBacklinksOpen} currentNoteDate={currentNote.date} />
-      <TasksModal isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
+      <TasksModal
+        isOpen={isTasksOpen}
+        onClose={() => setIsTasksOpen(false)}
+        onNavigate={navigateToNote}
+      />
     </div>
   )
 }

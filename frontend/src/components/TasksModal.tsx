@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '@/lib/api'
 import type { TaskResult } from '@/types'
 
 interface TasksModalProps {
   isOpen: boolean
   onClose: () => void
+  onNavigate: (date: string, bulletId?: string) => void
 }
 
 type FilterMode = 'active' | 'all' | 'done'
 type DateRange = 'today' | 'week' | 'month' | 'all'
 
-export function TasksModal({ isOpen, onClose }: TasksModalProps) {
+export function TasksModal({ isOpen, onClose, onNavigate }: TasksModalProps) {
   const [tasks, setTasks] = useState<TaskResult[]>([])
   const [filteredTasks, setFilteredTasks] = useState<TaskResult[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -18,6 +19,7 @@ export function TasksModal({ isOpen, onClose }: TasksModalProps) {
   const [dateRange, setDateRange] = useState<DateRange>('all')
   const [isLoading, setIsLoading] = useState(false)
   const [locallyModified, setLocallyModified] = useState<Set<string>>(new Set())
+  const taskRefs = useRef<(HTMLDivElement | null)[]>([])
 
   // Load tasks when modal opens
   useEffect(() => {
@@ -67,6 +69,16 @@ export function TasksModal({ isOpen, onClose }: TasksModalProps) {
     setFilteredTasks(filtered)
     setSelectedIndex(0)
   }, [tasks, filterMode, dateRange, locallyModified])
+
+  // Scroll selected task into view
+  useEffect(() => {
+    if (taskRefs.current[selectedIndex]) {
+      taskRefs.current[selectedIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    }
+  }, [selectedIndex])
 
   // Keyboard navigation
   useEffect(() => {
@@ -138,7 +150,8 @@ export function TasksModal({ isOpen, onClose }: TasksModalProps) {
 
   const handleNavigateToTask = (task: TaskResult) => {
     console.log('[TasksModal] Navigate to task:', task)
-    // TODO: Navigate to note and scroll to bullet
+    // Navigate to note and scroll to bullet
+    onNavigate(task.date, task.bulletId)
     onClose()
   }
 
@@ -320,6 +333,7 @@ export function TasksModal({ isOpen, onClose }: TasksModalProps) {
           {filteredTasks.map((task, index) => (
             <div
               key={task.bulletId}
+              ref={(el) => (taskRefs.current[index] = el)}
               onClick={() => setSelectedIndex(index)}
               style={{
                 padding: '12px',

@@ -13,9 +13,13 @@ interface WikilinkSuggestion {
 
 interface BulletEditorProps {
   noteId: string
+  noteDate: string
+  scrollToBulletId?: string
+  onNavigatePrevious: () => void
+  onNavigateNext: () => void
 }
 
-function BulletEditor({ noteId }: BulletEditorProps) {
+function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, onNavigateNext }: BulletEditorProps) {
   const lastCommittedIdRef = useRef<string | null>(null)
 
   // Wikilink autocomplete state
@@ -94,6 +98,33 @@ function BulletEditor({ noteId }: BulletEditorProps) {
     editorProps: {
       attributes: {
         class: 'bullet-editor',
+      },
+      handlePaste: (view, event, slice) => {
+        // Prevent pasted committed bullets from making current bullet committed
+        // We need to transform the slice content to remove committed attributes
+        const { state } = view
+        const { tr } = state
+
+        // Get the pasted HTML from clipboard
+        const html = event.clipboardData?.getData('text/html')
+        console.log('[BulletEditor] Pasted HTML:', html)
+
+        // If there's HTML, clean it and let the browser handle plain text paste
+        if (html && (html.includes('data-committed') || html.includes('data-bullet-id'))) {
+          event.preventDefault()
+
+          // Get plain text instead
+          const text = event.clipboardData?.getData('text/plain')
+          if (text) {
+            // Insert as plain text
+            const transaction = state.tr.insertText(text)
+            view.dispatch(transaction)
+            return true
+          }
+        }
+
+        // Let Tiptap handle normal paste
+        return false
       },
       handleKeyDown: (view, event) => {
         const { state } = view
@@ -481,40 +512,51 @@ function BulletEditor({ noteId }: BulletEditorProps) {
     return spans
   }
 
-  // Load bullets on mount
+  // Load bullets on mount or when noteId changes
   useEffect(() => {
     async function loadBullets() {
       const bullets = await api.getBullets(noteId)
 
-      if (bullets.length > 0) {
-        // Convert bullets to HTML and load into editor
-        // Build nested bullet list HTML
-        let html = '<ul>'
+      // Convert bullets to HTML and load into editor
+      // Build nested bullet list HTML
+      let html = '<ul>'
 
+      if (bullets.length > 0) {
         bullets.forEach((bullet) => {
           // Apply visual indent via inline style
           const indentPx = bullet.depth * 24 // 24px per depth level
           html += `<li data-bullet-id="${bullet.id}" data-committed="true" style="margin-left: ${indentPx}px;">${bullet.text}</li>`
         })
 
-        html += '<li></li></ul>' // Add empty editable bullet at end
-
-        editor?.commands.setContent(html)
-        editor?.commands.focus('end')
-
-        console.log('[BulletEditor] Loaded', bullets.length, 'bullets')
-
         // Set last committed for parent tracking
-        if (bullets.length > 0) {
-          lastCommittedIdRef.current = bullets[bullets.length - 1].id
-        }
+        lastCommittedIdRef.current = bullets[bullets.length - 1].id
+      }
+
+      html += '<li></li></ul>' // Add empty editable bullet at end
+
+      editor?.commands.setContent(html)
+      editor?.commands.focus('end')
+
+      console.log('[BulletEditor] Loaded', bullets.length, 'bullets for note', noteId)
+
+      // Scroll to specific bullet if requested
+      if (scrollToBulletId && bullets.length > 0) {
+        setTimeout(() => {
+          const bulletElement = document.querySelector(`[data-bullet-id="${scrollToBulletId}"]`)
+          if (bulletElement) {
+            bulletElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            console.log('[BulletEditor] Scrolled to bullet:', scrollToBulletId)
+          } else {
+            console.warn('[BulletEditor] Bullet not found for scrolling:', scrollToBulletId)
+          }
+        }, 100) // Small delay to ensure DOM is ready
       }
     }
 
     if (editor) {
       loadBullets()
     }
-  }, [noteId, editor])
+  }, [noteId, editor, scrollToBulletId])
 
   // Detect [[ wikilink trigger and show autocomplete
   useEffect(() => {
@@ -641,8 +683,8 @@ function BulletEditor({ noteId }: BulletEditorProps) {
     const { state } = editor
     const triggerPos = tagTriggerPosRef.current
 
-    // Replace # and partial query with #tag
-    const tagText = `#${tag}`
+    // Replace # and partial query with #tag and add trailing space
+    const tagText = `#${tag} `
     const tr = state.tr.insertText(tagText, triggerPos - 1, state.selection.from)
     editor.view.dispatch(tr)
 
@@ -661,8 +703,8 @@ function BulletEditor({ noteId }: BulletEditorProps) {
     const { state } = editor
     const triggerPos = wikilinkTriggerPosRef.current
 
-    // Replace [[ and partial query with [[Title]]
-    const wikilinkText = `[[${suggestion.title}]]`
+    // Replace [[ and partial query with [[Title]] and add trailing space
+    const wikilinkText = `[[${suggestion.title}]] `
     const tr = state.tr.insertText(wikilinkText, triggerPos - 2, state.selection.from)
     editor.view.dispatch(tr)
 
@@ -674,8 +716,98 @@ function BulletEditor({ noteId }: BulletEditorProps) {
     editor.commands.focus()
   }
 
+  // Format date nicely (e.g., "October 4, 2025")
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  // Keyboard shortcuts for navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if no modals are open and not in autocomplete
+      if (wikilinkQuery !== null || tagQuery !== null) return
+
+      // ArrowUp = previous/older day
+      if (e.key === 'ArrowUp' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        onNavigatePrevious()
+      }
+      // ArrowDown = next/newer day
+      if (e.key === 'ArrowDown' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        onNavigateNext()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [wikilinkQuery, tagQuery, onNavigatePrevious, onNavigateNext])
+
   return (
     <div style={{ position: 'relative' }}>
+      {/* Header with date and navigation */}
+      <div style={{
+        padding: '20px 20px 10px 20px',
+        borderBottom: '1px solid #e0e0e0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: '#fff',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+      }}>
+        <button
+          onClick={onNavigatePrevious}
+          title="Previous day (Cmd/Ctrl+↑)"
+          style={{
+            background: 'transparent',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ↑
+        </button>
+
+        <h1 style={{
+          fontSize: '24px',
+          fontWeight: 'bold',
+          margin: 0,
+          color: '#333',
+        }}>
+          {formatDate(noteDate)}
+        </h1>
+
+        <button
+          onClick={onNavigateNext}
+          title="Next day (Cmd/Ctrl+↓)"
+          style={{
+            background: 'transparent',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ↓
+        </button>
+      </div>
+
       <EditorContent editor={editor} />
 
       {/* Error banner */}

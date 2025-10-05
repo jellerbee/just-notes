@@ -1,0 +1,35 @@
+
+
+[] #issue add a space when completing a tag or wikilink
+
+
+[] #issue header for daily notes that has the date spelled out like (October 4 2025)
+
+
+[] #issue search tags not implemented on backend
+
+
+[] #issue search doesn't load the daily note / page that was clicked on
+
+
+[] #issue no way to switch, scroll through daily notes.
+
+
+[] #issue pasting a committed task into the current task makes it committed.
+
+
+[] #issue navigating downward in task list does not keep the highlighted task in view.
+
+
+[] from the task window, when clicking enter on a task to "go to task" does not bring the task into view. should put the task as the top visible line in the view
+
+
+
+[] going to a task defined in a child bullet should navigate to the parent bullet.
+
+
+
+[] #issue navigating upward in task list also does not keep the highlighted task in view.
+
+
+[] #issue task modal needs paging for large task lists (performance and usability)

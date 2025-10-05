@@ -28,6 +28,7 @@ export interface Note {
   createdAt: string
   updatedAt: string
   lastSeq: number
+  scrollToBulletId?: string // Optional bulletId to scroll to after loading
 }
 
 export interface Annotation {

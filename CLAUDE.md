@@ -4,148 +4,159 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a notes MVP application built with Electron + React + TypeScript. It creates a local desktop app for taking notes with outliner functionality, task management, and file-based storage. The app automatically creates daily notes and saves them as Markdown files while maintaining a SQLite index for search and backlinks.
+This is an **append-only outliner** web application built with React (frontend) + Node/Express (backend) + Postgres (database). It implements a bullets-only note-taking system where committed bullets are immutable - you can only append new content, never edit or delete existing bullets. The system automatically creates daily notes and supports wikilinks, tags, search, backlinks, and task management.
+
+**Key Philosophy:** Bullets are atomic facts captured in time. Everything else (tasks, entities, corrections, privacy) happens as append-only metadata.
 
 ## Architecture
 
-**Dual Frontend Architecture:**
-- **React Frontend** (`src/renderer/`): Built with Vite, intended for rich editor using Tiptap (currently not working due to ES module issues in Electron)
-- **Simple HTML Frontend** (`simple.html`): Currently active frontend - vanilla HTML/CSS/JS that provides all core functionality
+**Frontend** (`/frontend/`):
+- **Framework:** React + Vite + TypeScript
+- **Editor:** Tiptap (bullets-only schema)
+- **State:** TanStack Query for API state management
+- **Features:**
+  - Append-only bullet editor with visual indenting
+  - Wikilink autocomplete (`[[` trigger)
+  - Tag autocomplete (`#` trigger)
+  - Global search (Cmd+K)
+  - Backlinks panel (Cmd+B)
+  - Master tasks view (Ctrl+T)
 
-**Backend (Electron Main Process):**
-- **File Operations** (`src/main/fs.ts`): Handles vault creation, daily note generation, file read/write
-- **Database Layer** (`src/main/db.ts`): SQLite connection management with full foreign key support
-- **Indexer** (`src/main/indexer.ts`): Parses Markdown → database entries for search/links/tasks
-- **IPC Handlers** (`src/main/index.ts`): Bridges frontend to file system operations
+**Backend** (`/backend/`):
+- **Framework:** Node + Express + TypeScript
+- **ORM:** Prisma
+- **Database:** PostgreSQL (managed on Render.com)
+- **Architecture:** Append log + materialized tables
+- **Key Services:**
+  - REST API endpoints (append-only operations)
+  - Indexer service (spans parsing, FTS updates, link extraction)
+  - Idempotency tracking via clientSeq
 
 **Data Model:**
-- **Files as Truth**: Markdown files in `~/Documents/NotesVault/YYYY-MM-DD.md` format
-- **SQLite Index**: Structured data (notes, blocks, links, tags, tasks) with FTS5 search (disabled)
-- **Task Syntax**: `- [ ]` (TODO) → `- [ ] (Doing)` (DOING) → `- [x]` (DONE)
+- **Append Log** (`appends` table) - Source of truth for all operations
+- **Materialized Tables** - `notes`, `bullets`, `annotations`, `links`
+- **Full-Text Search** - Postgres tsvector with GIN indexes
+- **Automatic Indexing** - Database triggers update FTS on bullet insert/update
 
 ## Build Commands
 
 ```bash
-# Development
-npm run dev                    # Start Vite dev server (React - not currently working)
-npm run electron:dev          # Concurrent Vite + Electron dev mode
+# Frontend (React + Vite)
+cd frontend
+npm install
+npm run dev              # Start Vite dev server on port 5173
+npm run build           # Build for production
 
-# Production
-npm run build                 # Build React + compile main process TypeScript
-npm run build:main           # Compile only main process TypeScript
-npm start                    # Build and run Electron app
-
-# Currently Active Frontend
-# The app loads simple.html directly, not the React build
+# Backend (Node + Express)
+cd backend
+npm install
+npm run dev             # Start dev server with hot reload (nodemon + tsx)
+npm run build          # Compile TypeScript to dist/
+npm start              # Run compiled production build
+npm run prisma:generate # Generate Prisma client
+npm run prisma:migrate  # Run database migrations
+npm test               # Run tests with Vitest
 ```
 
 ## Key Implementation Details
 
-**Current Working State (Updated 2025-10-02):**
-- App loads `simple.html` as the main interface - fully functional notes app
-- SQLite database operations are working properly with all foreign key constraints resolved
-- File operations work correctly for daily note creation and saving
-- All core functionality works: outliner, tasks, auto-save, search, wikilink navigation
-- ID markers are hidden from user view but preserved in files for database consistency
-- **Master Tasks View** (`tasks.html`) - Fully functional keyboard-first task management interface
+**Current Working State (Updated 2025-10-04):**
+- ✅ **Phase 1** - Backend API complete (append log + materialized tables)
+- ✅ **Phase 2** - Bullet editor with append-only commits
+- ✅ **Phase 3** - Search, backlinks, and tasks fully functional
+- ✅ Frontend integrated with real backend API
+- ✅ Backend connected to Render Postgres database
+- ✅ Optimistic UI updates for instant feedback
+- ✅ **Bug Fixes** - All 10 user-reported issues resolved
+- 🎯 **READY FOR PHASE 5** - Deployment to Render.com
 
-**Task Management:**
-- Uses standard Markdown checkbox syntax with custom (Doing) modifier
-- **Editor**: Cmd/Ctrl+Enter cycles task states in the editor
-- **Master Tasks View**: Keyboard-first interface with:
-  - Spacebar to cycle task status: TODO → DOING → DONE → TODO
-  - Arrow keys for navigation with prominent visual selection
-  - Click checkbox to toggle TODO/DOING ↔ DONE
-  - Auto-focus and immediate keyboard functionality
-  - Task-first architecture showing stable chronological order
-- Parser in `src/renderer/lib/markdown/parse.ts` extracts tasks from checkbox syntax
+**Append-Only Architecture:**
+- Committed bullets are **immutable** (read-only after pressing Enter)
+- Tab/Shift+Tab for visual indenting with dynamic depth/parent tracking
+- All operations append to the `appends` table (bullets, annotations, redactions)
+- Materialized views (`bullets`, `links`, `annotations`) derived from append log
+- Idempotent appends via `clientSeq` tracking
 
-**File Structure Issues:**
-- React builds to `/dist/` but ES modules don't load properly in Electron
-- `simple.html` provides working fallback with identical functionality
-- TypeScript compilation targets ES2020 with separate configs for main/renderer
+**API Endpoints:**
+- `POST /notes/:date/ensure` - Create daily note
+- `GET /notes/:noteId` - Get bullets (with `?sinceSeq=X` for incremental sync)
+- `POST /notes/:noteId/bullets/append` - Append single bullet
+- `POST /notes/:noteId/bullets/appendBatch` - Bulk append
+- `POST /annotations/append` - Add task/entity annotations
+- `POST /redact` - Soft delete bullets (marks as redacted, preserves history)
+- `GET /search?q=query` - Full-text search across bullets
+- `GET /search/backlinks?target=NoteName` - Reverse wikilink references
+- `GET /search/wikilinks?q=query` - Wikilink targets for autocomplete
+- `GET /search/tasks` - All tasks with latest state
 
-**SQLite Integration:**
-- Database schema defined in `sqlite/schema.sql` with FTS5 search tables
-- Indexer parses Markdown bullets into hierarchical block structure with proper transaction sequencing
-- Search functionality working with LIKE fallback queries
-- Links, tags, and tasks are properly stored with correct foreign key relationships
-- Backlinks infrastructure complete and functional
+**Editor Features:**
+- **Append-only commits:** Enter commits bullet → becomes read-only → new bullet created
+- **Visual indenting:** Tab/Shift+Tab adjust depth, parent calculated on commit
+- **Wikilink autocomplete:** `[[` opens dropdown, searches real link targets
+- **Tag autocomplete:** `#` opens dropdown, searches existing tags
+- **Error handling:** Retry banner for failed commits, optimistic UI with rollback
+- **Tasks:** Auto-detect `[]` or `[ ]` syntax, cycle states (TODO → DOING → DONE)
 
-## Development Notes
-
-**Module System:**
-- Main process uses ES modules (`"type": "module"` in package.json)
-- Vite builds React as IIFE format for Electron compatibility
-- TypeScript configs: `tsconfig.json` (renderer), `tsconfig.main.json` (main process)
-
-**Debugging:**
-- App opens with dev tools automatically for debugging
-- Console logging throughout for tracing file operations and errors
-- All SQLite operations stable and working correctly
-
-**Task Parsing:**
-- Regex patterns in parse.ts handle checkbox detection and task state extraction
-- Hidden UUID markers (`<!-- {id: uuid} -->`) for stable block identification
-- Hierarchical block relationships based on indentation (2 spaces per level)
+**Database Schema:**
+- Append log: `appends(seq, note_id, kind, payload, created_at)`
+- Materialized: `notes`, `bullets`, `annotations`, `links`
+- FTS: `bullets.text_tsv` with GIN index for fast search
+- Soft deletes: `bullets.redacted` flag (never physically delete)
 
 ## Current Feature Status
 
 **✅ Fully Working Features:**
-1. **Daily Note Creation** - Auto-creates `YYYY-MM-DD.md` files on startup
-2. **Task Management** - Cmd/Ctrl+Enter cycles: `[ ]` → `[ ] (Doing)` → `[x]` → `[ ]`
-3. **Outliner** - Tab/Shift+Tab for indent/outdent (2 spaces per level)
-4. **Wikilink Navigation** - Ctrl+Click `[[links]]` creates/navigates to notes
-5. **Auto-save** - Files save 1 second after editing stops
-6. **Search** - Full-text search across all bullet point content
-7. **Clean UI** - ID markers hidden from editor display but preserved in files
-8. **Backlinks** - UI and backend complete, wikilinks properly indexed and stored
-9. **Tag Indexing** - Parser extracts `#tags` and stores them correctly in database
-10. **Master Tasks View** - Keyboard-first task management across all notes with:
-    - Stable chronological ordering (never reorders based on status)
-    - Visual selection indicators and auto-selection
-    - Spacebar/click status cycling and arrow key navigation
-    - Filter by status (TODO, DOING, DONE) with date ranges
+1. **Daily Notes** - Auto-created on first access
+2. **Append-Only Bullets** - Committed bullets are immutable, read-only
+3. **Visual Indenting** - Tab/Shift+Tab with dynamic depth/parent tracking
+4. **Wikilink Autocomplete** - `[[` trigger searches real link targets
+5. **Tag Autocomplete** - `#` trigger searches existing tags
+6. **Global Search** - Cmd+K searches all committed bullets
+7. **Backlinks Panel** - Cmd+B shows bullets referencing current note
+8. **Master Tasks View** - Ctrl+T with keyboard-first task management
+9. **Task Detection** - Auto-detect `[]` or `[ ]` syntax on commit
+10. **Optimistic UI** - Instant commit response, syncs in background
+11. **Error Recovery** - Retry banner for failed commits
+12. **Full-Text Search** - Postgres FTS with GIN indexes
 
-**🔮 Future Enhancements (Post-MVP):**
-1. **Tag-based Search** - Search and filter by `#tags` (infrastructure exists)
-2. **FTS5 Full-Text Search** - Currently using LIKE fallback, FTS5 table ready
-3. **AI Integration** - Automatic task detection, entity extraction, daily digest
-4. **Enhanced Wikilink Intelligence** - Auto-suggest based on content analysis
+**🔮 Future Enhancements:**
+1. **Authentication** - JWT-based auth (Phase 5)
+2. **Deployment** - Render.com deployment with managed Postgres (Phase 5)
+3. **Offline Support** - Service worker for offline writes (Phase 6)
+4. **Redaction UX** - Context menu to soft-delete bullets (Phase 6)
+5. **AI Integration** - Automatic task detection, entity extraction, daily digest
+6. **Semantic Search** - Embeddings with pgvector
 
-## Known Issues & Next Steps
+## Development Notes
 
-**Debugging Notes:**
-- Multiple Electron instances can cause database lock conflicts - use `pkill -f "notes-mvp"` to clean up
+**Module System:**
+- Frontend: ES modules (`"type": "module"` in package.json)
+- Backend: CommonJS (`"type": "commonjs"` in package.json)
+- Both use TypeScript with separate tsconfig files
 
-**Recent Changes (2025-10-02):**
-- All core features stable and tested
-- Application in production use for workflow validation
-- Database operations fully reliable with proper foreign key handling
+**Database:**
+- Postgres on Render.com (managed instance)
+- Prisma for schema management and type-safe queries
+- FTS triggers update `text_tsv` automatically on insert/update
+- Foreign key constraints enforced for data integrity
 
-**Previous Changes (2025-09-29):**
-- **FIXED: SQLite Foreign Key Constraints** - Rewrote indexer transaction logic in `src/main/indexer.ts`
-  - Implemented proper async operation sequencing: deletions → blocks → links/tags/tasks
-  - All database operations now use Promise-wrapped callbacks for reliable ordering
-  - Links, tags, and tasks are successfully stored with correct foreign key relationships
-  - Backlinks and tag indexing now fully functional
-- **IMPLEMENTED: Master Tasks View** - Created `tasks.html` with keyboard-first interface
-  - Fixed task list order stability (SQL changed from status-based to chronological ordering)
-  - Implemented proper keyboard navigation with visual selection preservation
-  - Added auto-focus, prominent selection highlighting, and immediate keyboard functionality
-  - Task status cycling via spacebar and checkbox clicking
+**Editor Implementation:**
+- Tiptap with custom ListItem extension
+- Attributes: `data-committed`, `data-bullet-id`, `style` (for indenting)
+- Keyboard handler intercepts all keys to enforce append-only
+- Dynamic depth calculation from bulletList ancestor count
+- Parent ID calculated as last committed bullet at depth-1
 
-**Earlier Changes (2025-09-28):**
-- Fixed link extraction in parser to happen before text processing
-- Added backlinks IPC handler and UI components
-- Implemented ID marker hiding in frontend display
-- Simplified search to use reliable LIKE queries as fallback
+**Critical Implementation Details:**
+- **Innermost ListItem Detection** - Must iterate through all descendants to find closest (innermost) listItem containing cursor
+- **CSS Selector Specificity** - Use `li[data-committed="true"] > p` to prevent opacity inheritance to nested children
+- **Span Extraction** - `extractSpans()` parses `[[wikilinks]]` and `#tags` into structured spans on commit
 
 ## Development Workflow
 
 **Workflow Process:**
-1. **Engineering Spec** → `docs/<project>_eng_spec.md` - Technical specification and architecture
-2. **Implementation Plan** → `docs/<project>_impl_plan.md` - Phased development roadmap (reviewed by Claude, broken into phases)
+1. **Engineering Spec** → `docs/jnotes_eng_spec.md` - Technical specification and architecture
+2. **Implementation Plan** → `docs/jnotes_impl_plan.md` - Phased development roadmap (reviewed by Claude, broken into phases)
 3. **Iterate by Phase** → Work through phases with "DocStops" at key boundaries
 4. **DocStops** → Update `CLAUDE.md` and `SESSION_CONTEXT.md` to capture progress
 
@@ -155,14 +166,24 @@ npm start                    # Build and run Electron app
 - **Merge to main** - When phase is complete and tested
 - **Easy rollback** - Can always return to tagged states
 
-**Current Development Status (Updated 2025-10-03):**
+**Current Development Status (Updated 2025-10-04):**
 - ✅ **v0.3-frontend-complete** - Phase 2 & 3 complete (tagged)
   - Append-only bullet editor with depth tracking
   - Wikilink and tag autocomplete
   - Global search (Cmd+K), backlinks (Cmd+B), tasks (Ctrl+T)
-- 🚧 **Phase 1 (In Progress)** - Backend API integration
-  - Branch: `phase-1-backend-api`
-  - Replace mockApi with real cloud persistence
+- ✅ **Phase 1** - Backend API integration complete
+  - Real cloud persistence with Postgres
+  - Append log + materialized tables architecture
+  - All endpoints working with frontend
+- ✅ **Bug Fixes** - All 10 user-reported issues resolved (2025-10-04)
+  - Daily note header with formatted date
+  - Navigation with keyboard shortcuts (Cmd/Ctrl+↑/↓)
+  - Tag search backend implementation
+  - Bullet navigation and scrolling from search/tasks
+  - Task list scroll-to-selection
+  - Paste protection for committed bullets
+  - Autocomplete spacing improvements
+- 🎯 **READY FOR PHASE 5** - Render.com deployment
 
 **Development Commands:**
 ```bash
@@ -170,7 +191,56 @@ npm start                    # Build and run Electron app
 cd frontend
 npm run dev              # Start Vite dev server on port 5173
 
-# MVP (Electron)
-npm start                # Development build and run (recommended)
-pkill -f "notes-mvp"     # Clean up hung processes if needed
+# Backend (Node + Express)
+cd backend
+npm run dev              # Start dev server with hot reload
+
+# Database operations
+cd backend
+npm run prisma:migrate   # Apply migrations
+npm run prisma:generate  # Regenerate Prisma client
 ```
+
+## Known Issues & Next Steps
+
+**Current Status (2025-10-04):**
+- All core features working with real backend API
+- Backend connected to Render Postgres
+- Frontend running locally on Vite dev server
+- User testing complete, issues list generated
+
+**Next Steps:**
+1. **Phase 5 - Deployment** (2-3 days, ready to start)
+   - Create `render.yaml` blueprint
+   - Deploy backend to Render as web service
+   - Deploy frontend to Render as static site
+   - Implement JWT authentication
+   - Configure CORS for production
+   - Run migrations on production database
+   - Load testing with 100k bullets
+
+3. **Phase 6 - Polish & Hardening** (3-5 days)
+   - Redaction UX (context menu to soft-delete)
+   - Offline support with service worker
+   - Error recovery improvements
+   - Virtual scrolling for large days
+   - Dark mode
+   - Keyboard shortcuts help (Cmd+?)
+
+**Breaking Changes from Electron Prototype:**
+- Web app instead of desktop (browser-based, not Electron)
+- Postgres instead of SQLite
+- No editing of committed bullets (append-only enforced)
+- No reordering bullets (append order is permanent)
+- Soft delete only (redactions preserve history)
+
+## Related Documentation
+
+- **Engineering Spec:** `docs/jnotes_eng_spec.md` - Complete technical specification
+- **Implementation Plan:** `docs/jnotes_impl_plan.md` - Phased development roadmap
+- **Session Context:** `SESSION_CONTEXT.md` - Current session progress and implementation details
+- **Issues List:** `docs/jnotes_issues_list.txt` - Bugs found during user testing
+
+## Legacy Note
+
+This repository previously contained an Electron app with SQLite (`simple.html`, `src/main/`). That was a proof-of-concept and has been superseded by the current web-based architecture described above. The Electron code may still exist in the repository but is not actively maintained.

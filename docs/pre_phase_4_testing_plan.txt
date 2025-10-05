@@ -1,0 +1,29 @@
+⏺ That's an excellent approach. Testing in real-world usage before deployment is crucial for catching issues that don't surface during
+  development. A few thoughts:
+
+  Why this makes sense:
+  - You'll discover UX friction points that only emerge with actual use
+  - Edge cases and bugs are easier to fix now before users depend on the system
+  - You can validate the append-only architecture handles real data volumes well
+  - Better to iron out issues locally than debug them in production
+
+  What to watch for during testing:
+  - Performance with larger data sets (100+ bullets, many wikilinks)
+  - Search quality and speed
+  - Task workflow feel (does the keyboard-first approach work for you?)
+  - Any data consistency issues with the append-only model
+  - Browser console errors or network failures
+  - Database query performance (check backend logs for slow queries)
+
+  Suggested approach:
+  - Keep a running list of issues in a file (maybe TESTING_NOTES.md)
+  - Categorize as: Critical (blocks usage), Important (friction), Nice-to-have
+  - Fix Critical and Important before deploying
+  - Nice-to-have can be post-deployment improvements
+
+  Current technical debt to keep in mind:
+  - Tag autocomplete not implemented (placeholder only)
+  - Some errors in backend logs (BigInt serialization, ts_rank casting)
+  - No authentication yet (anyone with URL can access)
+
+  Take your time testing - discovering and fixing issues now will make deployment much smoother.

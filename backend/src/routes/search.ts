@@ -138,6 +138,40 @@ router.get('/wikilinks', async (req, res, next) => {
 });
 
 /**
+ * GET /tags?q=query
+ * Search for tag targets (for autocomplete)
+ */
+router.get('/tags', async (req, res, next) => {
+  try {
+    const query = req.query.q as string;
+
+    // Get unique tag targets
+    const links = await prisma.link.findMany({
+      where: {
+        targetType: 'tag',
+        ...(query && query.length > 0 && {
+          targetValue: {
+            contains: query,
+            mode: 'insensitive',
+          },
+        }),
+      },
+      select: {
+        targetValue: true,
+      },
+      distinct: ['targetValue'],
+      take: 10,
+    });
+
+    const targets = links.map(link => link.targetValue);
+    console.log(`[Search] Found ${targets.length} tag targets for "${query}"`);
+    res.json(targets);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /tasks
  * Get all tasks from annotations
  */

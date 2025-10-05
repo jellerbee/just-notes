@@ -5,9 +5,10 @@ import type { SearchResult } from '@/types'
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
+  onNavigate: (date: string, bulletId?: string) => void
 }
 
-export function SearchModal({ isOpen, onClose }: SearchModalProps) {
+export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -63,7 +64,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
   const handleSelectResult = (result: SearchResult) => {
     console.log('[SearchModal] Selected result:', result)
-    // TODO: Navigate to note and scroll to bullet
+    // Navigate to the note containing this bullet and scroll to it
+    onNavigate(result.date, result.bulletId)
     onClose()
   }
 
