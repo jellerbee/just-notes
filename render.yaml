@@ -47,7 +47,7 @@ services:
 databases:
   # PostgreSQL database (already exists on Render)
   - name: lifetrails-db
-    plan: starter
+    plan: basic-1gb
     region: oregon
     databaseName: jnotes
     user: jnotes
