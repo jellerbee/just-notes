@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, Prisma } from '../generated/prisma';
+import { PrismaClient, Prisma } from '@prisma/client';
 import type { SearchResult, BacklinkResult } from '../types';
 
 const router = express.Router();

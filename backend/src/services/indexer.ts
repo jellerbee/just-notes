@@ -3,7 +3,7 @@
  * Parses spans, updates FTS, populates links table
  */
 
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import type { Span, BulletPayload, AnnotationPayload, RedactPayload } from '../types';
 
 const prisma = new PrismaClient();
