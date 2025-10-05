@@ -24,7 +24,7 @@ services:
   # Frontend - Static site
   - type: web
     name: jnotes-frontend
-    plan: starter
+    runtime: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
     envVars:
