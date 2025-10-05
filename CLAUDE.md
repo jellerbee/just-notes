@@ -204,10 +204,12 @@ npm run prisma:generate  # Regenerate Prisma client
 ## Known Issues & Next Steps
 
 **Current Status (2025-10-04):**
-- All core features working with real backend API
-- Backend connected to Render Postgres
-- Frontend running locally on Vite dev server
-- User testing complete, issues list generated
+- ✅ All core features working with real backend API
+- ✅ Backend connected to Render Postgres
+- ✅ Frontend running locally on Vite dev server
+- ✅ All 10 user-reported bugs fixed and committed
+- ✅ Tagged as v0.4-bug-fixes-complete
+- 🎯 Ready for Phase 5 deployment
 
 **Next Steps:**
 1. **Phase 5 - Deployment** (2-3 days, ready to start)
