@@ -1,8 +1,9 @@
 # jnotes - Session Context
 
-**Date:** 2025-10-04
-**Status:** ✅ All Core Features Complete - Ready for Deployment (Phase 5)
+**Date:** 2025-10-05
+**Status:** ✅ Phase 5 Complete - Production Deployed to Render.com
 **Branch:** `main`
+**Latest Tag:** `v0.5-production-deployed`
 
 ---
 
@@ -72,7 +73,7 @@
 5. ✅ Navigation from search/tasks - Scrolls to specific bullet
 6. ✅ Task list scrolling - Keeps selected task in view
 
-### Bug Fix Phase ✅ (2025-10-04)
+### Phase 4 - Bug Fixes ✅ (2025-10-04)
 
 **All 10 user-reported issues resolved:**
 
@@ -109,6 +110,40 @@
 
 10. ✅ **Task list scrolling (upward)** - Same scrollIntoView handles both directions
     - Files: `frontend/src/components/TasksModal.tsx:72-80`
+
+### Phase 5 - Production Deployment ✅ (2025-10-05)
+
+**Deployment Infrastructure:**
+1. ✅ Created `render.yaml` blueprint for infrastructure-as-code deployment
+2. ✅ Backend deployed to Render.com (Node.js web service)
+3. ✅ Frontend deployed to Render.com (static site)
+4. ✅ Connected to Render PostgreSQL database (`lifetrails-db`, Basic-1GB plan)
+5. ✅ JWT authentication framework implemented (dev mode: auto-auth, prod: requires token)
+6. ✅ CORS configured for production
+7. ✅ Environment variables configured (`VITE_API_URL`, `CORS_ORIGIN`, `JWT_SECRET`)
+
+**Production Testing:**
+1. ✅ Load testing with 4,000 bullets across 30 daily notes
+2. ✅ Full-text search performance verified (super fast response times)
+3. ✅ Test data generation script created (`backend/scripts/generate-test-data.js`)
+4. ✅ Database sequence fix script created (`backend/scripts/fix-sequence.sql`)
+
+**Issues Fixed During Deployment:**
+1. ✅ Hardcoded localhost URL in `App.tsx` - Now uses `VITE_API_URL`
+2. ✅ Render.yaml configuration (static_site type, database plan name)
+3. ✅ Prisma client location - Changed from custom path to default `@prisma/client`
+4. ✅ TypeScript build issues - Added dev dependencies to build command
+5. ✅ Database sequence conflicts - Created fix script for auto-increment reset
+
+**Production URLs:**
+- Frontend: `https://jnotes-frontend.onrender.com`
+- Backend API: `https://jnotes-api.onrender.com`
+
+**Known Issues Documented:**
+- Ghost bullet DOM issue - Failed commits leave bullets marked as committed in DOM
+  - Documented in `docs/TESTING_NOTES.md`
+  - Workaround: Refresh page to clear stale state
+  - Fix needed: Roll back optimistic UI on commit failure
 
 ---
 
@@ -346,11 +381,16 @@ const formatDate = (dateStr: string): string => {
 
 ## Known Issues
 
-### None (Critical)
-All user-reported issues resolved.
+### Ghost Bullet DOM Issue (Medium Priority)
+- **Issue:** Failed commits leave bullets marked as committed in DOM
+- **Impact:** Subsequent child bullets fail with foreign key errors
+- **Workaround:** Refresh page to clear stale state
+- **Fix Needed:** Roll back optimistic UI on commit failure
+- **Documented:** `docs/TESTING_NOTES.md`
 
 ### Future Enhancements
-- **Task modal paging** - For performance with large task lists (captured in issues list)
+- **Test data cleanup** - Add `test_data` flag to notes table (schema ready, migration pending)
+- **Task modal paging** - For performance with large task lists
 - **Semantic search** - Embeddings with pgvector
 - **Offline support** - Service worker for offline writes
 - **Redaction UX** - Context menu to soft-delete bullets
@@ -359,44 +399,36 @@ All user-reported issues resolved.
 
 ## Next Steps
 
-**Current Status (2025-10-04):**
-- ✅ All Phase 1-3 features complete
-- ✅ All user-reported bugs fixed
-- ✅ Backend connected to Render Postgres
-- ✅ Frontend fully functional with real API
-- 🎯 **READY FOR PHASE 5 DEPLOYMENT**
+**Current Status (2025-10-05):**
+- ✅ All Phase 1-5 complete
+- ✅ Production deployment live on Render.com
+- ✅ Production testing verified (4,000 bullets)
+- ✅ FTS performance excellent
+- 🎯 **READY FOR PHASE 6 - POLISH & HARDENING**
 
-**Phase 5 - Deployment to Render.com (Next):**
-1. Create `render.yaml` blueprint
-2. Deploy backend to Render as web service
-3. Deploy frontend to Render as static site
-4. Implement JWT authentication
-5. Configure CORS for production
-6. Run migrations on production database
-7. Load testing with 100k bullets
-
-**Phase 6 - Polish & Hardening:**
-1. Redaction UX (context menu to soft-delete)
-2. Offline support with service worker
-3. Error recovery improvements
-4. Virtual scrolling for large days
-5. Dark mode
-6. Keyboard shortcuts help (Cmd+?)
-7. Task modal paging
+**Phase 6 - Polish & Hardening (Next):**
+1. Fix ghost bullet DOM issue (error recovery)
+2. Add `test_data` migration to production
+3. Redaction UX (context menu to soft-delete)
+4. Offline support with service worker
+5. Virtual scrolling for large days
+6. Dark mode
+7. Keyboard shortcuts help (Cmd+?)
+8. Task modal paging
 
 ---
 
 ## Git Status
 
 **Branch:** `main`
-**Latest Tag:** `v0.4-bug-fixes-complete` ✅
-**Latest Commit:** `9b35221` - "feat: Complete bug fix phase - all 10 user issues resolved"
+**Latest Tag:** `v0.5-production-deployed` ✅
+**Latest Commit:** `0609c5a` - "docs: Add testing notes and database sequence fix script"
 **Status:** Pushed to GitHub (origin/main)
 
-**Commit Summary:**
-- 11 files changed, 736 insertions(+), 292 deletions(-)
-- All bug fixes committed and tagged
-- Ready for Phase 5 deployment
+**Recent Tags:**
+- `v0.5-production-deployed` - Phase 5 complete (2025-10-05)
+- `v0.4-bug-fixes-complete` - All 10 bugs fixed (2025-10-04)
+- `v0.3-frontend-complete` - Phase 2 & 3 complete (2025-10-04)
 
 ---
 
@@ -405,4 +437,6 @@ All user-reported issues resolved.
 - **Engineering Spec:** `/docs/jnotes_eng_spec.md` - Technical specification and architecture
 - **Implementation Plan:** `/docs/jnotes_impl_plan.md` - Phased development roadmap
 - **Project README:** `/CLAUDE.md` - Project overview and current status
+- **Testing Notes:** `/docs/TESTING_NOTES.md` - Production testing results and known issues
+- **Deployment Guide:** `/docs/DEPLOYMENT.md` - Render.com deployment instructions
 - **Issues List:** `/docs/jnotes_issues_list.txt` - User-reported bugs (all resolved + 1 future enhancement)

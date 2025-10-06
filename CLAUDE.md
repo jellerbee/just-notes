@@ -60,15 +60,17 @@ npm test               # Run tests with Vitest
 
 ## Key Implementation Details
 
-**Current Working State (Updated 2025-10-04):**
+**Current Working State (Updated 2025-10-05):**
 - ✅ **Phase 1** - Backend API complete (append log + materialized tables)
 - ✅ **Phase 2** - Bullet editor with append-only commits
 - ✅ **Phase 3** - Search, backlinks, and tasks fully functional
-- ✅ Frontend integrated with real backend API
-- ✅ Backend connected to Render Postgres database
-- ✅ Optimistic UI updates for instant feedback
-- ✅ **Bug Fixes** - All 10 user-reported issues resolved
-- 🎯 **READY FOR PHASE 5** - Deployment to Render.com
+- ✅ **Phase 4** - Bug Fixes - All 10 user-reported issues resolved
+- ✅ **Phase 5** - Production deployment to Render.com COMPLETE
+- ✅ Frontend deployed as static site on Render
+- ✅ Backend deployed as web service on Render
+- ✅ JWT authentication framework in place
+- ✅ Production testing complete (4,000 bullets, FTS verified)
+- 🎯 **READY FOR PHASE 6** - Polish & Hardening
 
 **Append-Only Architecture:**
 - Committed bullets are **immutable** (read-only after pressing Enter)
@@ -119,13 +121,18 @@ npm test               # Run tests with Vitest
 11. **Error Recovery** - Retry banner for failed commits
 12. **Full-Text Search** - Postgres FTS with GIN indexes
 
-**🔮 Future Enhancements:**
-1. **Authentication** - JWT-based auth (Phase 5)
-2. **Deployment** - Render.com deployment with managed Postgres (Phase 5)
-3. **Offline Support** - Service worker for offline writes (Phase 6)
-4. **Redaction UX** - Context menu to soft-delete bullets (Phase 6)
-5. **AI Integration** - Automatic task detection, entity extraction, daily digest
-6. **Semantic Search** - Embeddings with pgvector
+**✅ Production Deployment (Phase 5):**
+1. **JWT Authentication** - Framework in place (dev mode: auto-auth, prod: requires token)
+2. **Render.com Deployment** - Backend + Frontend live on Render
+3. **Production Database** - Postgres Basic-1GB plan on Render
+4. **Load Testing** - Verified with 4,000 bullets, FTS super fast
+
+**🔮 Future Enhancements (Phase 6+):**
+1. **Offline Support** - Service worker for offline writes
+2. **Redaction UX** - Context menu to soft-delete bullets
+3. **Error Recovery** - Fix ghost bullet DOM issue from failed commits
+4. **AI Integration** - Automatic task detection, entity extraction, daily digest
+5. **Semantic Search** - Embeddings with pgvector
 
 ## Development Notes
 
@@ -166,24 +173,23 @@ npm test               # Run tests with Vitest
 - **Merge to main** - When phase is complete and tested
 - **Easy rollback** - Can always return to tagged states
 
-**Current Development Status (Updated 2025-10-04):**
-- ✅ **v0.3-frontend-complete** - Phase 2 & 3 complete (tagged)
-  - Append-only bullet editor with depth tracking
-  - Wikilink and tag autocomplete
-  - Global search (Cmd+K), backlinks (Cmd+B), tasks (Ctrl+T)
-- ✅ **Phase 1** - Backend API integration complete
-  - Real cloud persistence with Postgres
-  - Append log + materialized tables architecture
-  - All endpoints working with frontend
-- ✅ **Bug Fixes** - All 10 user-reported issues resolved (2025-10-04)
+**Current Development Status (Updated 2025-10-05):**
+- ✅ **v0.5-production-deployed** - Phase 5 complete (tagged)
+  - Backend deployed to Render.com (Node.js web service)
+  - Frontend deployed to Render.com (static site)
+  - JWT authentication framework (dev mode active)
+  - Production testing verified (4,000 bullets)
+  - FTS performance excellent
+- ✅ **v0.4-bug-fixes-complete** - All 10 user issues resolved
   - Daily note header with formatted date
   - Navigation with keyboard shortcuts (Cmd/Ctrl+↑/↓)
   - Tag search backend implementation
   - Bullet navigation and scrolling from search/tasks
-  - Task list scroll-to-selection
-  - Paste protection for committed bullets
-  - Autocomplete spacing improvements
-- 🎯 **READY FOR PHASE 5** - Render.com deployment
+- ✅ **v0.3-frontend-complete** - Phase 2 & 3 complete
+  - Append-only bullet editor with depth tracking
+  - Wikilink and tag autocomplete
+  - Global search, backlinks, tasks
+- 🎯 **READY FOR PHASE 6** - Polish & Hardening
 
 **Development Commands:**
 ```bash
@@ -203,31 +209,29 @@ npm run prisma:generate  # Regenerate Prisma client
 
 ## Known Issues & Next Steps
 
-**Current Status (2025-10-04):**
-- ✅ All core features working with real backend API
-- ✅ Backend connected to Render Postgres
-- ✅ Frontend running locally on Vite dev server
-- ✅ All 10 user-reported bugs fixed and committed
-- ✅ Tagged as v0.4-bug-fixes-complete
-- 🎯 Ready for Phase 5 deployment
+**Current Status (2025-10-05):**
+- ✅ All core features working in production
+- ✅ Backend deployed to Render.com
+- ✅ Frontend deployed to Render.com
+- ✅ Production testing complete (4,000 bullets)
+- ✅ Tagged as v0.5-production-deployed
+- 🎯 Ready for Phase 6 - Polish & Hardening
+
+**Known Issues:**
+- **Ghost bullet DOM issue** - Failed commits leave uncommitted bullets marked as committed in DOM
+  - Workaround: Refresh page to clear stale state
+  - Fix needed in error handling to roll back optimistic UI
+  - See `docs/TESTING_NOTES.md` for details
 
 **Next Steps:**
-1. **Phase 5 - Deployment** (2-3 days, ready to start)
-   - Create `render.yaml` blueprint
-   - Deploy backend to Render as web service
-   - Deploy frontend to Render as static site
-   - Implement JWT authentication
-   - Configure CORS for production
-   - Run migrations on production database
-   - Load testing with 100k bullets
-
-3. **Phase 6 - Polish & Hardening** (3-5 days)
+1. **Phase 6 - Polish & Hardening** (3-5 days, ready to start)
+   - Fix ghost bullet DOM issue (error recovery)
    - Redaction UX (context menu to soft-delete)
    - Offline support with service worker
-   - Error recovery improvements
    - Virtual scrolling for large days
    - Dark mode
    - Keyboard shortcuts help (Cmd+?)
+   - Add `test_data` flag to notes table for easier cleanup
 
 **Breaking Changes from Electron Prototype:**
 - Web app instead of desktop (browser-based, not Electron)
@@ -241,6 +245,8 @@ npm run prisma:generate  # Regenerate Prisma client
 - **Engineering Spec:** `docs/jnotes_eng_spec.md` - Complete technical specification
 - **Implementation Plan:** `docs/jnotes_impl_plan.md` - Phased development roadmap
 - **Session Context:** `SESSION_CONTEXT.md` - Current session progress and implementation details
+- **Testing Notes:** `docs/TESTING_NOTES.md` - Production testing results and known issues
+- **Deployment Guide:** `docs/DEPLOYMENT.md` - Render.com deployment instructions
 - **Issues List:** `docs/jnotes_issues_list.txt` - Bugs found during user testing
 
 ## Legacy Note
