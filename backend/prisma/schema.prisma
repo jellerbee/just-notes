@@ -31,6 +31,7 @@ model Note {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
   lastSeq    BigInt   @map("last_seq")
+  testData   Boolean  @default(false) @map("test_data")
 
   bullets    Bullet[]
 

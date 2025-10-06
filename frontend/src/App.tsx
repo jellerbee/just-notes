@@ -6,6 +6,8 @@ import { BacklinksPanel } from '@/components/BacklinksPanel'
 import { TasksModal } from '@/components/TasksModal'
 import type { Note } from '@/types'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function App() {
   const [currentNote, setCurrentNote] = useState<Note | null>(null)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -20,7 +22,7 @@ function App() {
   // Navigate to a different note by date, optionally scrolling to a specific bullet
   const navigateToNote = async (date: string, bulletId?: string) => {
     try {
-      const response = await fetch(`http://localhost:3000/notes/${date}/ensure`, {
+      const response = await fetch(`${API_BASE_URL}/notes/${date}/ensure`, {
         method: 'POST',
       })
       if (response.ok) {
