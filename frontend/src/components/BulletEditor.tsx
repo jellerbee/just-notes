@@ -5,6 +5,7 @@ import ListItem from '@tiptap/extension-list-item'
 import { v4 as uuidv4 } from 'uuid'
 import { api } from '@/lib/api'
 import type { Span } from '@/types'
+import { Wikilink } from '@/extensions/Wikilink'
 
 interface WikilinkSuggestion {
   title: string
@@ -14,12 +15,15 @@ interface WikilinkSuggestion {
 interface BulletEditorProps {
   noteId: string
   noteDate: string
+  noteType: 'daily' | 'named'
   scrollToBulletId?: string
   onNavigatePrevious: () => void
   onNavigateNext: () => void
+  onNavigateToNote: (noteDate: string) => void
+  onNavigateToToday: () => void
 }
 
-function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, onNavigateNext }: BulletEditorProps) {
+function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigatePrevious, onNavigateNext, onNavigateToNote, onNavigateToToday }: BulletEditorProps) {
   const lastCommittedIdRef = useRef<string | null>(null)
 
   // Wikilink autocomplete state
@@ -90,6 +94,12 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
               },
             },
           }
+        },
+      }),
+      // Add wikilink extension for clickable links
+      Wikilink.configure({
+        HTMLAttributes: {
+          class: 'wikilink',
         },
       }),
     ],
@@ -448,6 +458,47 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
       } catch (error) {
         console.error('[Editor] Failed to commit bullet to backend:', error)
 
+        // ROLLBACK OPTIMISTIC UI UPDATE
+        // Find the bullet with this bulletId and remove committed state
+        if (editor) {
+          const { state } = editor
+          const { doc } = state
+
+          let failedBulletPos = -1
+          doc.descendants((node, pos) => {
+            if (node.type.name === 'listItem' && node.attrs['data-bullet-id'] === bulletId) {
+              failedBulletPos = pos
+              return false
+            }
+          })
+
+          if (failedBulletPos >= 0) {
+            const failedNode = doc.nodeAt(failedBulletPos)
+            if (failedNode) {
+              // Remove committed attributes
+              const cleanAttrs = { ...failedNode.attrs }
+              delete cleanAttrs['data-committed']
+              delete cleanAttrs['data-bullet-id']
+              delete cleanAttrs['style'] // Remove indent styling too
+
+              // Apply the rollback
+              editor.chain()
+                .command(({ tr }) => {
+                  tr.setNodeMarkup(failedBulletPos, null, cleanAttrs)
+                  return true
+                })
+                .run()
+
+              console.log('[Editor] Rolled back optimistic UI for failed bullet:', bulletId)
+            }
+          }
+
+          // Also clear the lastCommittedIdRef since this commit failed
+          if (lastCommittedIdRef.current === bulletId) {
+            lastCommittedIdRef.current = null
+          }
+        }
+
         // Show error banner and save failed text for retry
         setCommitError(error instanceof Error ? error.message : 'Failed to commit bullet')
         setFailedBulletText(text)
@@ -512,6 +563,14 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
     return spans
   }
 
+  // Helper: Convert bullet text to HTML with wikilink marks
+  const convertTextToHTML = (text: string): string => {
+    // Replace [[wikilinks]] with span elements that will be parsed as wikilink marks
+    return text.replace(/\[\[([^\]]+)\]\]/g, (match, target) => {
+      return `<span data-wikilink="true" data-target="${target}">[[${target}]]</span>`
+    })
+  }
+
   // Load bullets on mount or when noteId changes
   useEffect(() => {
     async function loadBullets() {
@@ -525,7 +584,8 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
         bullets.forEach((bullet) => {
           // Apply visual indent via inline style
           const indentPx = bullet.depth * 24 // 24px per depth level
-          html += `<li data-bullet-id="${bullet.id}" data-committed="true" style="margin-left: ${indentPx}px;">${bullet.text}</li>`
+          const htmlText = convertTextToHTML(bullet.text)
+          html += `<li data-bullet-id="${bullet.id}" data-committed="true" style="margin-left: ${indentPx}px;">${htmlText}</li>`
         })
 
         // Set last committed for parent tracking
@@ -566,6 +626,17 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
       const { state } = editor
       const { selection } = state
       const { $from } = selection
+
+      // Check if cursor is inside an existing wikilink - if so, don't trigger autocomplete
+      const marks = $from.marks()
+      const insideWikilink = marks.some(mark => mark.type.name === 'wikilink')
+      if (insideWikilink) {
+        setWikilinkQuery(null)
+        setWikilinkSuggestions([])
+        wikilinkTriggerPosRef.current = null
+        setWikilinkDropdownPos(null)
+        return
+      }
 
       // Get text before cursor
       const textBefore = $from.parent.textContent.slice(0, $from.parentOffset)
@@ -716,14 +787,22 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
     editor.commands.focus()
   }
 
-  // Format date nicely (e.g., "October 4, 2025")
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr + 'T00:00:00')
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+  // Format note title (date or arbitrary name)
+  const formatNoteTitle = (identifier: string): string => {
+    // Try to parse as date (YYYY-MM-DD format)
+    const dateMatch = identifier.match(/^\d{4}-\d{2}-\d{2}$/)
+    if (dateMatch) {
+      const date = new Date(identifier + 'T00:00:00')
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      }
+    }
+    // Not a date - return as-is (arbitrary note name)
+    return identifier
   }
 
   // Keyboard shortcuts for navigation
@@ -748,6 +827,31 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [wikilinkQuery, tagQuery, onNavigatePrevious, onNavigateNext])
 
+  // Handle wikilink clicks
+  useEffect(() => {
+    if (!editor) return
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+
+      // Check if clicked element or parent is a wikilink
+      const wikilinkEl = target.closest('[data-wikilink="true"]')
+      if (wikilinkEl) {
+        const wikilinkTarget = wikilinkEl.getAttribute('data-target')
+        if (wikilinkTarget) {
+          event.preventDefault()
+          console.log('[BulletEditor] Wikilink clicked:', wikilinkTarget)
+          // Navigate to note (works for both dates and arbitrary titles)
+          onNavigateToNote(wikilinkTarget)
+        }
+      }
+    }
+
+    const editorEl = editor.view.dom
+    editorEl.addEventListener('click', handleClick)
+    return () => editorEl.removeEventListener('click', handleClick)
+  }, [editor, onNavigateToNote])
+
   return (
     <div style={{ position: 'relative' }}>
       {/* Header with date and navigation */}
@@ -762,23 +866,42 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
         top: 0,
         zIndex: 100,
       }}>
-        <button
-          onClick={onNavigatePrevious}
-          title="Previous day (Cmd/Ctrl+↑)"
-          style={{
-            background: 'transparent',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            padding: '8px 12px',
-            cursor: 'pointer',
-            fontSize: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          ↑
-        </button>
+        {/* Left: Previous day button (only for daily notes) or Today button */}
+        {noteType === 'daily' ? (
+          <button
+            onClick={onNavigatePrevious}
+            title="Previous day (Cmd/Ctrl+↑)"
+            style={{
+              background: 'transparent',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ↑
+          </button>
+        ) : (
+          <button
+            onClick={onNavigateToToday}
+            title="Go to today (Cmd/Ctrl+H)"
+            style={{
+              background: 'transparent',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+            }}
+          >
+            Today
+          </button>
+        )}
 
         <h1 style={{
           fontSize: '24px',
@@ -786,26 +909,31 @@ function BulletEditor({ noteId, noteDate, scrollToBulletId, onNavigatePrevious, 
           margin: 0,
           color: '#333',
         }}>
-          {formatDate(noteDate)}
+          {formatNoteTitle(noteDate)}
         </h1>
 
-        <button
-          onClick={onNavigateNext}
-          title="Next day (Cmd/Ctrl+↓)"
-          style={{
-            background: 'transparent',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            padding: '8px 12px',
-            cursor: 'pointer',
-            fontSize: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          ↓
-        </button>
+        {/* Right: Next day button (only for daily notes) or spacer */}
+        {noteType === 'daily' ? (
+          <button
+            onClick={onNavigateNext}
+            title="Next day (Cmd/Ctrl+↓)"
+            style={{
+              background: 'transparent',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ↓
+          </button>
+        ) : (
+          <div style={{ width: '44px' }}>{/* Spacer for symmetry */}</div>
+        )}
       </div>
 
       <EditorContent editor={editor} />

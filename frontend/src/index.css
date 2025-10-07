@@ -99,13 +99,15 @@ body {
 }
 
 /* Wikilink styles */
-.wikilink {
+.wikilink,
+span[data-wikilink="true"] {
   color: #0969da;
   text-decoration: none;
   cursor: pointer;
 }
 
-.wikilink:hover {
+.wikilink:hover,
+span[data-wikilink="true"]:hover {
   text-decoration: underline;
 }
 
@@ -124,7 +126,8 @@ body {
     opacity: 0.7;
   }
 
-  .wikilink {
+  .wikilink,
+  span[data-wikilink="true"] {
     color: #58a6ff;
   }
 

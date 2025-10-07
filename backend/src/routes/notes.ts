@@ -7,37 +7,63 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 /**
- * POST /notes/:date/ensure
- * Create daily note if it doesn't exist
+ * POST /notes/:identifier/ensure
+ * Create note if it doesn't exist (supports both dates and arbitrary titles)
  */
-router.post('/:date/ensure', async (req, res, next) => {
+router.post('/:identifier/ensure', async (req, res, next) => {
   try {
-    const { date } = req.params;
+    const { identifier } = req.params;
 
-    // Parse date string to Date object
-    const dateObj = new Date(date);
-    if (isNaN(dateObj.getTime())) {
-      return res.status(400).json({ error: 'Invalid date format' });
-    }
+    let note;
 
-    // Check if note exists
-    let note = await prisma.note.findUnique({
-      where: { date: dateObj },
-    });
+    // Try to parse as date (YYYY-MM-DD format)
+    const dateMatch = identifier.match(/^\d{4}-\d{2}-\d{2}$/);
 
-    // Create if missing
-    if (!note) {
-      note = await prisma.note.create({
-        data: {
-          date: dateObj,
-          lastSeq: 0,
-        },
+    if (dateMatch) {
+      // It's a date - create/get daily note
+      const dateObj = new Date(identifier);
+      if (isNaN(dateObj.getTime())) {
+        return res.status(400).json({ error: 'Invalid date format' });
+      }
+
+      // Check if note exists
+      note = await prisma.note.findUnique({
+        where: { date: dateObj },
       });
-      console.log(`[Notes] Created note for ${date}: ${note.id}`);
+
+      // Create if missing
+      if (!note) {
+        note = await prisma.note.create({
+          data: {
+            noteType: 'daily',
+            date: dateObj,
+            lastSeq: 0,
+          },
+        });
+        console.log(`[Notes] Created daily note for ${identifier}: ${note.id}`);
+      }
+    } else {
+      // It's an arbitrary title - create/get named note
+      note = await prisma.note.findUnique({
+        where: { title: identifier },
+      });
+
+      // Create if missing
+      if (!note) {
+        note = await prisma.note.create({
+          data: {
+            noteType: 'named',
+            title: identifier,
+            lastSeq: 0,
+          },
+        });
+        console.log(`[Notes] Created named note "${identifier}": ${note.id}`);
+      }
     }
 
     res.json({
       noteId: note.id,
+      noteType: note.noteType,
       lastSeq: note.lastSeq,
     });
   } catch (error) {
@@ -75,7 +101,7 @@ router.get('/:noteId', async (req, res, next) => {
 
     res.json({
       noteId: note.id,
-      date: note.date.toISOString().split('T')[0],
+      date: note.date ? note.date.toISOString().split('T')[0] : note.title || '',
       bullets,
       lastSeq: note.lastSeq,
     });

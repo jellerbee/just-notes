@@ -65,6 +65,7 @@ class NotesAPI {
     const data = await response.json();
     return {
       id: data.noteId,
+      noteType: data.noteType || 'daily',
       date: date,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

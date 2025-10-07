@@ -19,21 +19,22 @@ function App() {
     api.getTodayNote().then(setCurrentNote)
   }, [])
 
-  // Navigate to a different note by date, optionally scrolling to a specific bullet
-  const navigateToNote = async (date: string, bulletId?: string) => {
+  // Navigate to a different note by identifier (date or title), optionally scrolling to a specific bullet
+  const navigateToNote = async (identifier: string, bulletId?: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/notes/${date}/ensure`, {
+      const response = await fetch(`${API_BASE_URL}/notes/${identifier}/ensure`, {
         method: 'POST',
       })
       if (response.ok) {
         const data = await response.json()
 
-        console.log('[App] Navigating to note:', date, 'noteId:', data.noteId)
+        console.log('[App] Navigating to note:', identifier, 'noteId:', data.noteId, 'noteType:', data.noteType)
 
         // Always update the note - BulletEditor will handle empty notes
         setCurrentNote({
           id: data.noteId,
-          date: date,
+          noteType: data.noteType || 'daily',
+          date: identifier,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           lastSeq: data.lastSeq,
@@ -48,21 +49,39 @@ function App() {
     }
   }
 
-  // Navigate to previous/next day
+  // Navigate to today's daily note
+  const navigateToToday = () => {
+    const today = new Date().toISOString().split('T')[0]
+    navigateToNote(today)
+  }
+
+  // Navigate to previous/next day (only works on daily notes)
   const navigatePreviousDay = () => {
-    if (!currentNote) return
-    const currentDate = new Date(currentNote.date + 'T00:00:00')
-    currentDate.setDate(currentDate.getDate() - 1)
-    const prevDate = currentDate.toISOString().split('T')[0]
-    navigateToNote(prevDate)
+    if (!currentNote || currentNote.noteType !== 'daily') return
+
+    try {
+      const currentDate = new Date(currentNote.date + 'T00:00:00')
+      if (isNaN(currentDate.getTime())) return // Invalid date
+      currentDate.setDate(currentDate.getDate() - 1)
+      const prevDate = currentDate.toISOString().split('T')[0]
+      navigateToNote(prevDate)
+    } catch (error) {
+      console.warn('[App] Failed to navigate to previous day:', error)
+    }
   }
 
   const navigateNextDay = () => {
-    if (!currentNote) return
-    const currentDate = new Date(currentNote.date + 'T00:00:00')
-    currentDate.setDate(currentDate.getDate() + 1)
-    const nextDate = currentDate.toISOString().split('T')[0]
-    navigateToNote(nextDate)
+    if (!currentNote || currentNote.noteType !== 'daily') return
+
+    try {
+      const currentDate = new Date(currentNote.date + 'T00:00:00')
+      if (isNaN(currentDate.getTime())) return // Invalid date
+      currentDate.setDate(currentDate.getDate() + 1)
+      const nextDate = currentDate.toISOString().split('T')[0]
+      navigateToNote(nextDate)
+    } catch (error) {
+      console.warn('[App] Failed to navigate to next day:', error)
+    }
   }
 
   // Global hotkeys
@@ -83,11 +102,16 @@ function App() {
         e.preventDefault()
         setIsTasksOpen(true)
       }
+      // Cmd+H / Ctrl+H - Go to today's daily note
+      if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
+        e.preventDefault()
+        navigateToToday()
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [navigateToToday])
 
   if (!currentNote) {
     return null
@@ -98,16 +122,23 @@ function App() {
       <BulletEditor
         noteId={currentNote.id}
         noteDate={currentNote.date}
+        noteType={currentNote.noteType}
         scrollToBulletId={currentNote.scrollToBulletId}
         onNavigatePrevious={navigatePreviousDay}
         onNavigateNext={navigateNextDay}
+        onNavigateToNote={(date) => navigateToNote(date)}
+        onNavigateToToday={navigateToToday}
       />
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onNavigate={navigateToNote}
       />
-      <BacklinksPanel isOpen={isBacklinksOpen} currentNoteDate={currentNote.date} />
+      <BacklinksPanel
+        isOpen={isBacklinksOpen}
+        currentNoteDate={currentNote.date}
+        onNavigate={navigateToNote}
+      />
       <TasksModal
         isOpen={isTasksOpen}
         onClose={() => setIsTasksOpen(false)}

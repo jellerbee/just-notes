@@ -24,7 +24,8 @@ export interface Span {
 
 export interface Note {
   id: string // UUID
-  date: string // YYYY-MM-DD
+  noteType: 'daily' | 'named' // Type of note
+  date: string // YYYY-MM-DD for daily notes, or title for named notes
   createdAt: string
   updatedAt: string
   lastSeq: number

@@ -91,7 +91,9 @@ router.get('/backlinks', async (req, res, next) => {
       .map(link => ({
         bulletId: link.bullet.id,
         noteId: link.bullet.noteId,
-        date: link.bullet.note.date.toISOString().split('T')[0],
+        date: link.bullet.note.date
+          ? link.bullet.note.date.toISOString().split('T')[0]
+          : link.bullet.note.title || '',
         text: link.bullet.text,
         depth: link.bullet.depth,
       }));

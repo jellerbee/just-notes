@@ -5,9 +5,10 @@ import type { BacklinkResult } from '@/types'
 interface BacklinksPanelProps {
   isOpen: boolean
   currentNoteDate: string // Use date as the target for backlinks
+  onNavigate?: (date: string, bulletId?: string) => void
 }
 
-export function BacklinksPanel({ isOpen, currentNoteDate }: BacklinksPanelProps) {
+export function BacklinksPanel({ isOpen, currentNoteDate, onNavigate }: BacklinksPanelProps) {
   const [backlinks, setBacklinks] = useState<BacklinkResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -104,7 +105,9 @@ export function BacklinksPanel({ isOpen, currentNoteDate }: BacklinksPanelProps)
                 }}
                 onClick={() => {
                   console.log('[Backlinks] Navigate to:', backlink)
-                  // TODO: Navigate to note and scroll to bullet
+                  if (onNavigate) {
+                    onNavigate(backlink.date, backlink.bulletId)
+                  }
                 }}
               >
                 <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
