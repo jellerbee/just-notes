@@ -4,6 +4,8 @@ import BulletEditor from '@/components/BulletEditor'
 import { SearchModal } from '@/components/SearchModal'
 import { BacklinksPanel } from '@/components/BacklinksPanel'
 import { TasksModal } from '@/components/TasksModal'
+import { KeyboardHelpModal } from '@/components/KeyboardHelpModal'
+import { SyncStatus } from '@/components/SyncStatus'
 import type { Note } from '@/types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -13,6 +15,7 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isBacklinksOpen, setIsBacklinksOpen] = useState(false)
   const [isTasksOpen, setIsTasksOpen] = useState(false)
+  const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState(false)
 
   useEffect(() => {
     // Load today's note on mount
@@ -107,6 +110,11 @@ function App() {
         e.preventDefault()
         navigateToToday()
       }
+      // Cmd+/ / Ctrl+/ - Show keyboard shortcuts help
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault()
+        setIsKeyboardHelpOpen(true)
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -143,6 +151,16 @@ function App() {
         isOpen={isTasksOpen}
         onClose={() => setIsTasksOpen(false)}
         onNavigate={navigateToNote}
+      />
+      <KeyboardHelpModal
+        isOpen={isKeyboardHelpOpen}
+        onClose={() => setIsKeyboardHelpOpen(false)}
+      />
+      <SyncStatus
+        onSyncRequest={async () => {
+          console.log('[App] Manual sync requested');
+          await api.syncOfflineQueue();
+        }}
       />
     </div>
   )

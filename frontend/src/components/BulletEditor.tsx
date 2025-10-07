@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { api } from '@/lib/api'
 import type { Span } from '@/types'
 import { Wikilink } from '@/extensions/Wikilink'
+import { RedactionModal } from './RedactionModal'
 
 interface WikilinkSuggestion {
   title: string
@@ -43,6 +44,23 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
   // Error handling state
   const [commitError, setCommitError] = useState<string | null>(null)
   const [failedBulletText, setFailedBulletText] = useState<string | null>(null)
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    bulletId: string
+    bulletText: string
+    position: { x: number; y: number }
+  } | null>(null)
+
+  // Redaction modal state
+  const [redactionModalOpen, setRedactionModalOpen] = useState(false)
+  const [bulletToRedact, setBulletToRedact] = useState<{
+    bulletId: string
+    bulletText: string
+  } | null>(null)
+
+  // Hide redacted bullets toggle
+  const [hideRedacted, setHideRedacted] = useState(false)
 
   // Single Tiptap editor - handles everything inline like Word
   const editor = useEditor({
@@ -787,6 +805,65 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
     editor.commands.focus()
   }
 
+  // Handle context menu (right-click on bullet)
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+
+    // Find the bullet element that was clicked
+    const target = e.target as HTMLElement
+    const bulletElement = target.closest('li[data-committed="true"]') as HTMLElement
+
+    if (!bulletElement) return
+
+    const bulletId = bulletElement.getAttribute('data-bullet-id')
+    if (!bulletId) return
+
+    // Get bullet text
+    const bulletTextElement = bulletElement.querySelector('p')
+    const bulletText = bulletTextElement?.textContent || ''
+
+    setContextMenu({
+      bulletId,
+      bulletText,
+      position: { x: e.clientX, y: e.clientY }
+    })
+  }
+
+  // Handle redaction confirmation
+  const handleRedactionConfirm = async (reason: string) => {
+    if (!bulletToRedact) return
+
+    try {
+      await api.redact(bulletToRedact.bulletId, reason || undefined)
+
+      // Update the bullet in DOM to show as redacted
+      const bulletElement = document.querySelector(`li[data-bullet-id="${bulletToRedact.bulletId}"]`)
+      if (bulletElement) {
+        const paragraph = bulletElement.querySelector('p')
+        if (paragraph) {
+          paragraph.innerHTML = `<span style="color: #999; font-style: italic;">Redacted${reason ? ` (${reason})` : ''}</span>`
+          bulletElement.setAttribute('data-redacted', 'true')
+        }
+      }
+
+      // Close modal
+      setRedactionModalOpen(false)
+      setBulletToRedact(null)
+    } catch (error) {
+      console.error('Failed to redact bullet:', error)
+      alert('Failed to redact bullet. Please try again.')
+    }
+  }
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null)
+    if (contextMenu) {
+      document.addEventListener('click', handleClick)
+      return () => document.removeEventListener('click', handleClick)
+    }
+  }, [contextMenu])
+
   // Format note title (date or arbitrary name)
   const formatNoteTitle = (identifier: string): string => {
     // Try to parse as date (YYYY-MM-DD format)
@@ -912,31 +989,52 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
           {formatNoteTitle(noteDate)}
         </h1>
 
-        {/* Right: Next day button (only for daily notes) or spacer */}
-        {noteType === 'daily' ? (
+        {/* Right: Hide redacted toggle + next day button */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
-            onClick={onNavigateNext}
-            title="Next day (Cmd/Ctrl+↓)"
+            onClick={() => setHideRedacted(!hideRedacted)}
+            title={hideRedacted ? 'Show redacted bullets' : 'Hide redacted bullets'}
             style={{
-              background: 'transparent',
+              background: hideRedacted ? '#f8f9fa' : 'transparent',
               border: '1px solid #ccc',
               borderRadius: '4px',
-              padding: '8px 12px',
+              padding: '6px 10px',
               cursor: 'pointer',
-              fontSize: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: hideRedacted ? '#666' : '#999',
             }}
           >
-            ↓
+            {hideRedacted ? 'Show Redacted' : 'Hide Redacted'}
           </button>
-        ) : (
-          <div style={{ width: '44px' }}>{/* Spacer for symmetry */}</div>
-        )}
+
+          {noteType === 'daily' ? (
+            <button
+              onClick={onNavigateNext}
+              title="Next day (Cmd/Ctrl+↓)"
+              style={{
+                background: 'transparent',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                padding: '8px 12px',
+                cursor: 'pointer',
+                fontSize: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ↓
+            </button>
+          ) : (
+            <div style={{ width: '44px' }}>{/* Spacer for symmetry */}</div>
+          )}
+        </div>
       </div>
 
-      <EditorContent editor={editor} />
+      <div onContextMenu={handleContextMenu} className={hideRedacted ? 'hide-redacted' : ''}>
+        <EditorContent editor={editor} />
+      </div>
 
       {/* Error banner */}
       {commitError && (
@@ -1085,6 +1183,64 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
           ))}
         </div>
       )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.position.y,
+            left: contextMenu.position.x,
+            background: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            zIndex: 1002,
+            minWidth: '150px',
+          }}
+        >
+          <button
+            onClick={() => {
+              setBulletToRedact({
+                bulletId: contextMenu.bulletId,
+                bulletText: contextMenu.bulletText
+              })
+              setRedactionModalOpen(true)
+              setContextMenu(null)
+            }}
+            style={{
+              width: '100%',
+              padding: '10px 16px',
+              background: 'transparent',
+              border: 'none',
+              textAlign: 'left',
+              cursor: 'pointer',
+              color: '#dc3545',
+              fontWeight: '500',
+              fontSize: '14px',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f8f9fa'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent'
+            }}
+          >
+            Redact
+          </button>
+        </div>
+      )}
+
+      {/* Redaction Modal */}
+      <RedactionModal
+        isOpen={redactionModalOpen}
+        bulletText={bulletToRedact?.bulletText || ''}
+        onConfirm={handleRedactionConfirm}
+        onCancel={() => {
+          setRedactionModalOpen(false)
+          setBulletToRedact(null)
+        }}
+      />
     </div>
   )
 }

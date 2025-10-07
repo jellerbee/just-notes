@@ -145,6 +145,7 @@ async function generateTestData() {
     if (!note) {
       note = await prisma.note.create({
         data: {
+          noteType: 'daily',
           date: date,
           lastSeq: BigInt(0),
           testData: true,

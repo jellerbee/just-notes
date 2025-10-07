@@ -50,7 +50,7 @@ model Bullet {
   text       String    @db.Text
   spans      Json      @default("[]") // Array of span objects
   redacted   Boolean   @default(false)
-  textTsv    String?   @map("text_tsv") // tsvector for full-text search (managed by DB trigger)
+  textTsv    Unsupported("tsvector")?   @map("text_tsv") // tsvector for full-text search (managed by DB trigger)
 
   note       Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
   parent     Bullet?   @relation("BulletHierarchy", fields: [parentId], references: [id], onDelete: Cascade)

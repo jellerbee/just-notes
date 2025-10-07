@@ -12,6 +12,8 @@ import type {
   AnnotationData,
 } from '@/types';
 import { auth } from './auth';
+import { offlineQueue } from './offlineQueue';
+import { swManager } from './serviceWorker';
 
 // Configure API base URL (can be overridden via environment variable)
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -89,18 +91,45 @@ class NotesAPI {
       clientSeq: ++this.clientSeq,
     };
 
-    const response = await fetch(`${API_BASE_URL}/notes/${noteId}/bullets/append`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(payloadWithSeq),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/notes/${noteId}/bullets/append`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payloadWithSeq),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || `Failed to append bullet: ${response.statusText}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || `Failed to append bullet: ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      // If offline or network error, queue the append
+      if (!navigator.onLine || (error as Error).message.includes('Failed to fetch')) {
+        console.log('[API] Offline, queueing append:', payload.bulletId);
+
+        // Queue the append
+        await offlineQueue.enqueue({
+          noteId,
+          bulletId: payload.bulletId,
+          payload: payloadWithSeq,
+        });
+
+        // Update pending count
+        const count = await offlineQueue.count();
+        swManager.setPendingCount(count);
+
+        // Return optimistic response
+        return {
+          orderSeq: Date.now(), // Temporary orderSeq
+          lastSeq: Date.now(),
+        };
+      }
+
+      // Re-throw other errors
+      throw error;
     }
-
-    return response.json();
   }
 
   /**
@@ -268,7 +297,65 @@ class NotesAPI {
     const targets: string[] = await response.json();
     return targets;
   }
+
+  /**
+   * Sync queued offline appends
+   */
+  async syncOfflineQueue(): Promise<{ synced: number; failed: number }> {
+    console.log('[API] Starting offline queue sync...');
+
+    const queue = await offlineQueue.getAll();
+    if (queue.length === 0) {
+      console.log('[API] No pending appends to sync');
+      return { synced: 0, failed: 0 };
+    }
+
+    console.log(`[API] Syncing ${queue.length} pending appends...`);
+
+    let synced = 0;
+    let failed = 0;
+
+    for (const item of queue) {
+      try {
+        // Retry the append
+        const response = await fetch(`${API_BASE_URL}/notes/${item.noteId}/bullets/append`, {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(item.payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to sync append: ${response.statusText}`);
+        }
+
+        // Success - remove from queue
+        await offlineQueue.dequeue(item.id);
+        synced++;
+        console.log('[API] Synced append:', item.bulletId);
+      } catch (error) {
+        console.error('[API] Failed to sync append:', item.bulletId, error);
+
+        // Increment retry count
+        await offlineQueue.incrementRetries(item.id);
+
+        // If too many retries, remove from queue
+        if (item.retries >= 3) {
+          console.warn('[API] Max retries reached, removing from queue:', item.bulletId);
+          await offlineQueue.dequeue(item.id);
+        }
+
+        failed++;
+      }
+    }
+
+    // Update pending count
+    const remainingCount = await offlineQueue.count();
+    swManager.setPendingCount(remainingCount);
+
+    console.log(`[API] Sync complete: ${synced} synced, ${failed} failed, ${remainingCount} remaining`);
+
+    return { synced, failed };
+  }
 }
 
-// Singleton instance
 export const api = new NotesAPI();

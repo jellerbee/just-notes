@@ -8,9 +8,12 @@ interface SearchModalProps {
   onNavigate: (date: string, bulletId?: string) => void
 }
 
+const PAGE_SIZE = 50 // Number of results per page
+
 export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
+  const [currentPage, setCurrentPage] = useState(0)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isSearching, setIsSearching] = useState(false)
 
@@ -24,10 +27,17 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
     setIsSearching(true)
     api.search(query).then((results) => {
       setResults(results)
+      setCurrentPage(0) // Reset to first page on new search
       setSelectedIndex(0)
       setIsSearching(false)
     })
   }, [query])
+
+  // Calculate pagination
+  const totalPages = Math.ceil(results.length / PAGE_SIZE)
+  const startIndex = currentPage * PAGE_SIZE
+  const endIndex = startIndex + PAGE_SIZE
+  const pagedResults = results.slice(startIndex, endIndex)
 
   // Reset when modal opens/closes
   useEffect(() => {
@@ -48,19 +58,31 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
         onClose()
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1))
+        setSelectedIndex((prev) => Math.min(prev + 1, pagedResults.length - 1))
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         setSelectedIndex((prev) => Math.max(prev - 1, 0))
-      } else if (e.key === 'Enter' && results[selectedIndex]) {
+      } else if (e.key === 'PageDown' || (e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey))) {
         e.preventDefault()
-        handleSelectResult(results[selectedIndex])
+        if (currentPage < totalPages - 1) {
+          setCurrentPage(prev => prev + 1)
+          setSelectedIndex(0)
+        }
+      } else if (e.key === 'PageUp' || (e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault()
+        if (currentPage > 0) {
+          setCurrentPage(prev => prev - 1)
+          setSelectedIndex(0)
+        }
+      } else if (e.key === 'Enter' && pagedResults[selectedIndex]) {
+        e.preventDefault()
+        handleSelectResult(pagedResults[selectedIndex])
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, results, selectedIndex, onClose])
+  }, [isOpen, pagedResults, selectedIndex, currentPage, totalPages, onClose])
 
   const handleSelectResult = (result: SearchResult) => {
     console.log('[SearchModal] Selected result:', result)
@@ -146,7 +168,7 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
             </div>
           )}
 
-          {results.map((result, index) => (
+          {pagedResults.map((result, index) => (
             <div
               key={result.bulletId}
               onClick={() => handleSelectResult(result)}
@@ -169,6 +191,69 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
           ))}
         </div>
 
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderTop: '1px solid #e0e0e0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#f8f9fa',
+            }}
+          >
+            <button
+              onClick={() => {
+                if (currentPage > 0) {
+                  setCurrentPage(prev => prev - 1)
+                  setSelectedIndex(0)
+                }
+              }}
+              disabled={currentPage === 0}
+              style={{
+                padding: '6px 12px',
+                background: currentPage === 0 ? '#f0f0f0' : 'white',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
+                fontSize: '13px',
+                color: currentPage === 0 ? '#999' : '#333',
+              }}
+            >
+              ← Previous
+            </button>
+
+            <div style={{ fontSize: '13px', color: '#666' }}>
+              Page {currentPage + 1} of {totalPages}
+              <span style={{ marginLeft: '8px', color: '#999' }}>
+                ({results.length} total results)
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                if (currentPage < totalPages - 1) {
+                  setCurrentPage(prev => prev + 1)
+                  setSelectedIndex(0)
+                }
+              }}
+              disabled={currentPage === totalPages - 1}
+              style={{
+                padding: '6px 12px',
+                background: currentPage === totalPages - 1 ? '#f0f0f0' : 'white',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                cursor: currentPage === totalPages - 1 ? 'not-allowed' : 'pointer',
+                fontSize: '13px',
+                color: currentPage === totalPages - 1 ? '#999' : '#333',
+              }}
+            >
+              Next →
+            </button>
+          </div>
+        )}
+
         {/* Footer hint */}
         <div
           style={{
@@ -182,6 +267,7 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
         >
           <span>↑↓ Navigate</span>
           <span>Enter Select</span>
+          <span>PgUp/PgDn Page</span>
           <span>Esc Close</span>
         </div>
       </div>

@@ -11,9 +11,12 @@ interface TasksModalProps {
 type FilterMode = 'active' | 'all' | 'done'
 type DateRange = 'today' | 'week' | 'month' | 'all'
 
+const PAGE_SIZE = 50 // Number of tasks per page
+
 export function TasksModal({ isOpen, onClose, onNavigate }: TasksModalProps) {
   const [tasks, setTasks] = useState<TaskResult[]>([])
   const [filteredTasks, setFilteredTasks] = useState<TaskResult[]>([])
+  const [currentPage, setCurrentPage] = useState(0)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [filterMode, setFilterMode] = useState<FilterMode>('active')
   const [dateRange, setDateRange] = useState<DateRange>('all')
@@ -67,8 +70,15 @@ export function TasksModal({ isOpen, onClose, onNavigate }: TasksModalProps) {
     // 'all' shows all dates
 
     setFilteredTasks(filtered)
+    setCurrentPage(0) // Reset to first page when filters change
     setSelectedIndex(0)
   }, [tasks, filterMode, dateRange, locallyModified])
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredTasks.length / PAGE_SIZE)
+  const startIndex = currentPage * PAGE_SIZE
+  const endIndex = startIndex + PAGE_SIZE
+  const pagedTasks = filteredTasks.slice(startIndex, endIndex)
 
   // Scroll selected task into view
   useEffect(() => {
@@ -90,22 +100,34 @@ export function TasksModal({ isOpen, onClose, onNavigate }: TasksModalProps) {
         onClose()
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setSelectedIndex((prev) => Math.min(prev + 1, filteredTasks.length - 1))
+        setSelectedIndex((prev) => Math.min(prev + 1, pagedTasks.length - 1))
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         setSelectedIndex((prev) => Math.max(prev - 1, 0))
+      } else if (e.key === 'PageDown' || (e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault()
+        if (currentPage < totalPages - 1) {
+          setCurrentPage(prev => prev + 1)
+          setSelectedIndex(0)
+        }
+      } else if (e.key === 'PageUp' || (e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault()
+        if (currentPage > 0) {
+          setCurrentPage(prev => prev - 1)
+          setSelectedIndex(0)
+        }
       } else if (e.key === ' ') {
         e.preventDefault()
-        cycleTaskState(filteredTasks[selectedIndex])
-      } else if (e.key === 'Enter' && filteredTasks[selectedIndex]) {
+        cycleTaskState(pagedTasks[selectedIndex])
+      } else if (e.key === 'Enter' && pagedTasks[selectedIndex]) {
         e.preventDefault()
-        handleNavigateToTask(filteredTasks[selectedIndex])
+        handleNavigateToTask(pagedTasks[selectedIndex])
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, filteredTasks, selectedIndex, onClose])
+  }, [isOpen, pagedTasks, selectedIndex, currentPage, totalPages, onClose])
 
   const cycleTaskState = async (task: TaskResult) => {
     if (!task) return
@@ -330,7 +352,7 @@ export function TasksModal({ isOpen, onClose, onNavigate }: TasksModalProps) {
             </div>
           )}
 
-          {filteredTasks.map((task, index) => (
+          {pagedTasks.map((task, index) => (
             <div
               key={task.bulletId}
               ref={(el) => (taskRefs.current[index] = el)}
@@ -403,6 +425,69 @@ export function TasksModal({ isOpen, onClose, onNavigate }: TasksModalProps) {
           ))}
         </div>
 
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderTop: '1px solid #e0e0e0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#f8f9fa',
+            }}
+          >
+            <button
+              onClick={() => {
+                if (currentPage > 0) {
+                  setCurrentPage(prev => prev - 1)
+                  setSelectedIndex(0)
+                }
+              }}
+              disabled={currentPage === 0}
+              style={{
+                padding: '6px 12px',
+                background: currentPage === 0 ? '#f0f0f0' : 'white',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
+                fontSize: '13px',
+                color: currentPage === 0 ? '#999' : '#333',
+              }}
+            >
+              ← Previous
+            </button>
+
+            <div style={{ fontSize: '13px', color: '#666' }}>
+              Page {currentPage + 1} of {totalPages}
+              <span style={{ marginLeft: '8px', color: '#999' }}>
+                ({filteredTasks.length} total tasks)
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                if (currentPage < totalPages - 1) {
+                  setCurrentPage(prev => prev + 1)
+                  setSelectedIndex(0)
+                }
+              }}
+              disabled={currentPage === totalPages - 1}
+              style={{
+                padding: '6px 12px',
+                background: currentPage === totalPages - 1 ? '#f0f0f0' : 'white',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                cursor: currentPage === totalPages - 1 ? 'not-allowed' : 'pointer',
+                fontSize: '13px',
+                color: currentPage === totalPages - 1 ? '#999' : '#333',
+              }}
+            >
+              Next →
+            </button>
+          </div>
+        )}
+
         {/* Footer hint */}
         <div
           style={{
@@ -416,8 +501,8 @@ export function TasksModal({ isOpen, onClose, onNavigate }: TasksModalProps) {
         >
           <span>↑↓ Navigate</span>
           <span>Space Cycle Status</span>
-          <span>Click Checkbox Toggle Done</span>
           <span>Enter Go to Task</span>
+          <span>PgUp/PgDn Page</span>
           <span>Esc Close</span>
         </div>
       </div>

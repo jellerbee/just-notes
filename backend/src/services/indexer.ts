@@ -31,6 +31,9 @@ export class Indexer {
         spans: spans as any, // Prisma Json type
         redacted: false,
       },
+      select: {
+        id: true, // Only select id to avoid tsvector deserialization issue
+      },
     });
 
     // Extract and create links from spans

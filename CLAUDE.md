@@ -262,3 +262,4 @@ npm run prisma:generate  # Regenerate Prisma client
 ## Legacy Note
 
 This repository previously contained an Electron app with SQLite (`simple.html`, `src/main/`). That was a proof-of-concept and has been superseded by the current web-based architecture described above. The Electron code may still exist in the repository but is not actively maintained.
+- There is test data.  Ok to destroy it though because you wrote me a script to generate test data @backend/scripts/generate-test-data.js.  plus you wound up adding a test data column, i think @backend/scripts/add-test-data-column.sql is the column you added.

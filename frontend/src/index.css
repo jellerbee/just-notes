@@ -116,6 +116,18 @@ span[data-wikilink="true"]:hover {
   color: #8250df;
 }
 
+/* Redacted bullets */
+.ProseMirror li[data-redacted="true"] > p {
+  color: #999 !important;
+  font-style: italic;
+  opacity: 0.6;
+}
+
+/* Hide redacted bullets when toggle is active */
+.hide-redacted li[data-redacted="true"] {
+  display: none;
+}
+
 @media (prefers-color-scheme: dark) {
   .ProseMirror ul li::before {
     color: #aaa;
