@@ -181,13 +181,21 @@ npm test               # Run tests with Vitest
 - **Merge to main** - When phase is complete and tested
 - **Easy rollback** - Can always return to tagged states
 
-**Current Development Status (Updated 2025-10-05):**
+**Current Development Status (Updated 2025-10-07):**
+- ✅ **v0.6-phase-6-complete** - Phase 6 complete (ready to tag)
+  - Test data cleanup with `test_data` flag migration
+  - Redaction UX with context menu and hide/show toggle
+  - Offline support with service worker + IndexedDB queue
+  - Pagination for TasksModal and SearchModal (50 items/page)
+  - Keyboard shortcuts help modal (Cmd+/)
 - ✅ **v0.5-production-deployed** - Phase 5 complete (tagged)
   - Backend deployed to Render.com (Node.js web service)
   - Frontend deployed to Render.com (static site)
   - JWT authentication framework (dev mode active)
   - Production testing verified (4,000 bullets)
   - FTS performance excellent
+  - Issues #1, #2, #3 resolved (ghost bullets, wikilinks, backlinks)
+  - Arbitrary note names support added
 - ✅ **v0.4-bug-fixes-complete** - All 10 user issues resolved
   - Daily note header with formatted date
   - Navigation with keyboard shortcuts (Cmd/Ctrl+↑/↓)
@@ -197,7 +205,7 @@ npm test               # Run tests with Vitest
   - Append-only bullet editor with depth tracking
   - Wikilink and tag autocomplete
   - Global search, backlinks, tasks
-- 🎯 **READY FOR PHASE 6** - Polish & Hardening
+- 🎯 **READY FOR PHASE 7 (OPTIONAL)** - AI Integration
 
 **Development Commands:**
 ```bash
@@ -218,30 +226,44 @@ npm run prisma:generate  # Regenerate Prisma client
 ## Known Issues & Next Steps
 
 **Current Status (2025-10-07):**
-- ✅ All core features working in production
+- ✅ All Phases 1-6 complete
 - ✅ Backend deployed to Render.com
 - ✅ Frontend deployed to Render.com
 - ✅ Production testing complete (4,000 bullets)
 - ✅ All testing issues resolved (#1, #2, #3)
 - ✅ Wikilinks fully functional with navigation
 - ✅ Arbitrary note names supported
-- 🎯 Ready for Phase 6 - Polish & Hardening
+- ✅ Phase 6 polish features complete
+- 🎯 Ready for Phase 7 (Optional) - AI Integration
 
 **All Known Issues Resolved (2025-10-07):**
 - ~~Ghost bullet DOM issue~~ - ✅ Fixed with optimistic UI rollback
 - ~~Wikilink navigation broken~~ - ✅ Fixed with custom Tiptap extension
 - ~~Backlinks not working~~ - ✅ Confirmed working, fixed named note bug
+- ~~Prisma tsvector error~~ - ✅ Fixed by marking as Unsupported type
+
+**Phase 6 Complete (2025-10-07):**
+- ✅ Test data cleanup with `test_data` flag migration
+- ✅ Redaction UX (context menu + "Hide Redacted" toggle)
+- ✅ Offline support (service worker + IndexedDB queue)
+- ✅ Modal pagination (TasksModal & SearchModal, 50 items/page)
+- ✅ Keyboard shortcuts help (Cmd+/)
+- ⏭️ Virtual scrolling (skipped - rarely >50 bullets/day)
+- ⏭️ Dark mode (skipped - not needed)
 
 **Next Steps:**
-1. **Phase 6 - Polish & Hardening** (3-5 days, ready to start)
-   - ~~Fix ghost bullet DOM issue~~ ✅ DONE
-   - ~~Fix wikilink navigation~~ ✅ DONE
-   - Redaction UX (context menu to soft-delete)
-   - Offline support with service worker
-   - Virtual scrolling for large days
-   - Dark mode
-   - Keyboard shortcuts help (Cmd+?)
-   - Add `test_data` flag to notes table for easier cleanup
+1. **Phase 7 - AI Integration (Optional)** - Future enhancement
+   - Automatic task detection from bullet text
+   - Entity extraction and linking
+   - Daily digest generation
+   - Smart search with embeddings (pgvector)
+   - Bullet suggestions and auto-completion
+
+**Or consider project complete and focus on:**
+- User testing and feedback
+- Performance monitoring
+- Documentation improvements
+- Bug fixes as discovered
 
 **Breaking Changes from Electron Prototype:**
 - Web app instead of desktop (browser-based, not Electron)
@@ -262,4 +284,21 @@ npm run prisma:generate  # Regenerate Prisma client
 ## Legacy Note
 
 This repository previously contained an Electron app with SQLite (`simple.html`, `src/main/`). That was a proof-of-concept and has been superseded by the current web-based architecture described above. The Electron code may still exist in the repository but is not actively maintained.
-- There is test data.  Ok to destroy it though because you wrote me a script to generate test data @backend/scripts/generate-test-data.js.  plus you wound up adding a test data column, i think @backend/scripts/add-test-data-column.sql is the column you added.
+
+## Test Data Management
+
+The database includes test data for development and testing. It can be safely destroyed and regenerated using the provided script:
+
+**Generate test data:**
+```bash
+cd backend
+node scripts/generate-test-data.js
+```
+
+**Clean up test data:**
+```bash
+cd backend
+node scripts/generate-test-data.js --cleanup
+```
+
+All test notes are marked with `testData: true` in the `notes` table for easy identification and cleanup.

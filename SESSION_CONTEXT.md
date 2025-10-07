@@ -1,9 +1,9 @@
 # jnotes - Session Context
 
 **Date:** 2025-10-07
-**Status:** ✅ Issues #1, #2, #3 Fixed + Arbitrary Note Names
+**Status:** ✅ Phase 6 Complete - Polish & Hardening
 **Branch:** `main`
-**Latest Commit:** `b10a56b` - Fix wikilinks, ghost bullets, backlinks, arbitrary notes
+**Latest Commit:** `f0a9745` - Complete Phase 6 with all polish features
 
 ---
 
@@ -51,8 +51,8 @@
 
 **Deployment:**
 - ✅ Backend connected to Render Postgres
-- ⏳ Deploy backend to Render.com (Phase 5)
-- ⏳ Authentication (Phase 5)
+- ✅ Backend deployed to Render.com (Phase 5)
+- ✅ Authentication framework in place (Phase 5)
 
 ### Phase 2 - Bullet Editor Core ✅
 
@@ -139,13 +139,62 @@
 - Frontend: `https://jnotes-frontend.onrender.com`
 - Backend API: `https://jnotes-api.onrender.com`
 
-**Session 2025-10-07 Updates:**
+**Session 2025-10-07 Updates (Issues #1-#3):**
 1. ✅ Fixed Issue #1 - Ghost bullets (rollback optimistic UI on error)
 2. ✅ Fixed Issue #2 - Wikilink navigation (custom Tiptap extension)
 3. ✅ Fixed Issue #3 - Backlinks work (confirmed + fixed named note bug)
 4. ✅ Added arbitrary note names support (daily vs named notes)
 5. ✅ Added note type differentiation in UI (Today button, arrow nav)
 6. ✅ Added Cmd/Ctrl+H shortcut to go to today
+
+### Phase 6 - Polish & Hardening ✅ (2025-10-07)
+
+**Completed Tasks:**
+
+1. ✅ **Test Data Cleanup** - Added `test_data` flag migration
+   - Files: `backend/prisma/schema.prisma`, `backend/prisma/migrations/20251007221309_init/`
+   - Added `test_data`, `note_type`, `title` fields to Notes table
+   - Updated test data generation script to set `testData: true`
+   - Cleanup: `node scripts/generate-test-data.js --cleanup`
+
+2. ✅ **Redaction UX** - Context menu and hide/show toggle
+   - Files: `frontend/src/components/RedactionModal.tsx`, `frontend/src/components/BulletEditor.tsx`
+   - Right-click committed bullets → context menu → redact confirmation
+   - "Hide Redacted" toggle button in note header
+   - Redacted bullets styled with gray italic text
+   - Backend `/redact` endpoint already existed
+
+3. ✅ **Offline Support** - Service worker + IndexedDB queue
+   - Files: `frontend/public/sw.js`, `frontend/src/lib/offlineQueue.ts`, `frontend/src/lib/serviceWorker.ts`
+   - Created service worker for offline caching and background sync
+   - IndexedDB queue persists offline writes
+   - SyncStatus component shows Online/Offline/Pending/Syncing states
+   - Manual "Sync Now" button as fallback
+   - Updated API client to queue writes when offline
+
+4. ✅ **Modal Pagination** - TasksModal and SearchModal
+   - Files: `frontend/src/components/TasksModal.tsx`, `frontend/src/components/SearchModal.tsx`
+   - Page size: 50 items per page
+   - Keyboard shortcuts: PageUp/PageDown, Cmd/Ctrl+←/→
+   - Pagination UI with Previous/Next buttons and page indicator
+   - Only shown when totalPages > 1
+
+5. ✅ **Keyboard Shortcuts Help** - Cmd+/ modal
+   - Files: `frontend/src/components/KeyboardHelpModal.tsx`, `frontend/src/App.tsx`
+   - Created help modal with organized shortcut groups
+   - Global Navigation, Daily Note Navigation, Bullet Editor, Search Modal, Tasks Modal
+   - Hotkey: Cmd+/ (or Ctrl+/)
+   - Clean UI with kbd-style key display
+
+**Bug Fixes:**
+- ✅ Fixed Prisma tsvector deserialization error
+  - Changed schema to mark `text_tsv` as `Unsupported("tsvector")`
+  - Updated `indexer.ts` to only select `id` field (avoids tsvector return)
+- ✅ Fixed keyboard shortcut from Cmd+? to Cmd+/ (easier to press)
+
+**Skipped Tasks (User Decision):**
+- ⏭️ Virtual scrolling (rarely >50 bullets/day)
+- ⏭️ Dark mode (not needed)
 
 ---
 
@@ -256,11 +305,12 @@ const formatDate = (dateStr: string): string => {
 **Selection:** Arrow keys navigate, Enter/Tab select
 **Spacing:** Added trailing space after completion (line 665)
 **Span Extraction:** `extractSpans()` function (lines ~433-471) extracts `[[target]]` into structured spans
+**Navigation:** Custom Tiptap extension makes wikilinks clickable
 
 ### 6. Tag Autocomplete
 
 **Trigger:** `#` detection at word boundary (lines ~581-635)
-**Search:** `api.searchTags()` - searches tag targets from links table (NEW!)
+**Search:** `api.searchTags()` - searches tag targets from links table
 **Backend:** `GET /search/tags?q=query` endpoint (backend/src/routes/search.ts:140-172)
 **UI:** Green dropdown with cursor-positioned absolute positioning
 **Selection:** Arrow keys navigate, Enter/Tab select
@@ -272,6 +322,7 @@ const formatDate = (dateStr: string): string => {
 **State:** `commitError`, `failedBulletText` (lines ~39-40)
 **Banner:** Red fixed-position banner with Retry/Dismiss buttons
 **Retry Logic:** `retryCommit()` function (lines ~415-431)
+**Optimistic UI:** Rollback on error to prevent ghost bullets
 
 ### 8. Visual Styling
 
@@ -285,7 +336,47 @@ const formatDate = (dateStr: string): string => {
 }
 ```
 
+**Redacted Bullets (lines 119-126):**
+```css
+.ProseMirror li[data-redacted="true"] > p {
+  color: #999 !important;
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.hide-redacted li[data-redacted="true"] {
+  display: none;
+}
+```
+
 **Key:** Using `> p` (direct child selector) prevents opacity inheritance to nested uncommitted children
+
+### 9. Offline Support
+
+**Service Worker (`frontend/public/sw.js`):**
+- Cache-first for static assets (HTML, CSS, JS, images)
+- Network-first for API calls
+- Background sync for queued appends
+- Handles offline/online events
+
+**IndexedDB Queue (`frontend/src/lib/offlineQueue.ts`):**
+- Persists failed appends with bulletId, noteId, payload
+- Tracks retry count (max 3 retries)
+- Provides enqueue, dequeue, getAll, count methods
+
+**Sync Status (`frontend/src/components/SyncStatus.tsx`):**
+- Visual indicator: Online (green) / Offline (orange) / Pending (yellow) / Syncing (blue)
+- Manual "Sync Now" button as fallback for browsers without background sync
+- Fixed position bottom-right corner
+
+### 10. Pagination
+
+**TasksModal & SearchModal:**
+- Page size: 50 items per page
+- Keyboard navigation: PageUp/PageDown, Cmd/Ctrl+←/→
+- UI controls: Previous/Next buttons, page indicator
+- Only shown when totalPages > 1
+- Resets to page 1 on filter/search change
 
 ---
 
@@ -324,6 +415,28 @@ const formatDate = (dateStr: string): string => {
 **Root Cause:** No scroll logic on selection change
 **Fix:** Added `scrollIntoView` effect in TasksModal (lines 72-80)
 
+### Bug 7: Ghost Bullets (Issue #1)
+**Symptom:** Failed commits leave uncommitted bullet in DOM
+**Root Cause:** Optimistic UI doesn't rollback on error
+**Fix:** Added rollback logic to remove bullet from editor on commit failure
+
+### Bug 8: Wikilink Navigation (Issue #2)
+**Symptom:** Clicking wikilinks doesn't navigate to target note
+**Root Cause:** No click handler on wikilink spans
+**Fix:** Created custom Tiptap extension with click handler to navigate
+
+### Bug 9: Backlinks (Issue #3)
+**Symptom:** Backlinks panel not showing results for named notes
+**Root Cause:** Backend query only checked date field, not title field
+**Fix:** Updated backlinks query to check both date and title
+
+### Bug 10: Prisma tsvector Deserialization
+**Symptom:** Database error when creating bullets after migration
+**Root Cause:** Prisma can't deserialize tsvector type
+**Fix:**
+- Changed schema to mark `text_tsv` as `Unsupported("tsvector")`
+- Updated bullet creation to only select `id` field (avoids returning tsvector)
+
 ---
 
 ## Architecture
@@ -334,31 +447,45 @@ const formatDate = (dateStr: string): string => {
 - Keyboard handler intercepts and blocks editing on committed bullets
 - Dynamic depth/parent calculation from document structure
 - Paste protection via `transformPastedHTML`
+- Custom Wikilink extension for clickable navigation
+- Service worker + IndexedDB for offline support
+- Pagination for modals with 50 items/page
 
 ### Backend (Node + Express + Prisma)
 - RESTful API with append-only operations
 - Postgres database on Render.com
 - Indexer service parses spans and updates FTS
 - Tag search endpoint for autocomplete
+- Redaction endpoint for soft deletes
+- Full-text search with tsvector (marked as Unsupported in Prisma)
 
 ---
 
-## Files Modified (Session 2025-10-04)
-
-**Frontend:**
-- `/frontend/src/components/BulletEditor.tsx` - Added header, navigation, paste protection, scroll-to-bullet
-- `/frontend/src/components/SearchModal.tsx` - Updated to pass bulletId on navigation
-- `/frontend/src/components/TasksModal.tsx` - Added scroll-to-task, navigation integration
-- `/frontend/src/App.tsx` - Added navigation functions, scroll-to-bullet support
-- `/frontend/src/lib/api.ts` - Implemented tag search endpoint
-- `/frontend/src/types/index.ts` - Added scrollToBulletId to Note interface
+## Files Modified (Phase 6 - Session 2025-10-07)
 
 **Backend:**
-- `/backend/src/routes/search.ts` - Added `/search/tags` endpoint
+- `/backend/prisma/schema.prisma` - Added test_data, note_type, title fields; marked text_tsv as Unsupported
+- `/backend/prisma/migrations/20251007221309_init/` - Fresh migration with all schema updates
+- `/backend/src/services/indexer.ts` - Fixed tsvector deserialization (select id only)
+- `/backend/scripts/generate-test-data.js` - Updated to set testData: true
+
+**Frontend:**
+- `/frontend/public/sw.js` - Created service worker for offline support
+- `/frontend/src/components/RedactionModal.tsx` - Created redaction confirmation modal
+- `/frontend/src/components/SyncStatus.tsx` - Created sync status indicator
+- `/frontend/src/components/KeyboardHelpModal.tsx` - Created keyboard shortcuts help
+- `/frontend/src/components/BulletEditor.tsx` - Added redaction context menu, hide redacted toggle
+- `/frontend/src/components/TasksModal.tsx` - Added pagination (50 tasks/page)
+- `/frontend/src/components/SearchModal.tsx` - Added pagination (50 results/page)
+- `/frontend/src/lib/offlineQueue.ts` - Created IndexedDB queue manager
+- `/frontend/src/lib/serviceWorker.ts` - Created service worker manager
+- `/frontend/src/lib/api.ts` - Updated to queue writes when offline
+- `/frontend/src/App.tsx` - Added KeyboardHelpModal, SyncStatus, Cmd+/ hotkey
+- `/frontend/src/main.tsx` - Initialize offline queue, register service worker
+- `/frontend/src/index.css` - Added redacted bullet styles
 
 **Documentation:**
-- `/docs/jnotes_issues_list.txt` - Added future issue for task modal paging
-- `/CLAUDE.md` - Updated with current architecture and status
+- `/CLAUDE.md` - Updated with Phase 6 completion
 - `/SESSION_CONTEXT.md` - This file
 
 ---
@@ -378,62 +505,71 @@ const formatDate = (dateStr: string): string => {
 11. ✅ Task Enter navigates to note and scrolls to bullet
 12. ✅ Task list arrow keys keep selection in view
 13. ✅ Daily note navigation with arrows and Cmd/Ctrl+↑/↓
+14. ✅ Wikilinks are clickable and navigate correctly
+15. ✅ Backlinks work for both daily and named notes
+16. ✅ Ghost bullets rollback on commit failure
+17. ✅ Right-click committed bullet → redact confirmation → bullet redacted
+18. ✅ Hide redacted toggle hides/shows redacted bullets
+19. ✅ Offline writes queue in IndexedDB → sync when online
+20. ✅ TasksModal pagination (50 tasks/page, PageUp/PageDown)
+21. ✅ SearchModal pagination (50 results/page, PageUp/PageDown)
+22. ✅ Cmd+/ shows keyboard shortcuts help modal
 
 ---
 
 ## Known Issues
 
-### ✅ All Issues from TESTING_NOTES.md Resolved (2025-10-07)
+### ✅ All Issues Resolved (2025-10-07)
 - Issue #1: Ghost bullets - **FIXED** (rollback optimistic UI)
 - Issue #2: Wikilink navigation - **FIXED** (custom Tiptap extension)
-- Issue #3: Backlinks - **CONFIRMED WORKING** (fixed named note bug)
+- Issue #3: Backlinks - **FIXED** (confirmed working, fixed named note bug)
+- Prisma tsvector error - **FIXED** (marked as Unsupported type)
 
 ### Future Enhancements
-- **Test data cleanup** - Add `test_data` flag to notes table (schema ready, migration pending)
-- **Task modal paging** - For performance with large task lists
 - **Semantic search** - Embeddings with pgvector
-- **Offline support** - Service worker for offline writes
-- **Redaction UX** - Context menu to soft-delete bullets
+- **AI Integration** - Automatic task detection, entity extraction, daily digest
+- **Performance optimization** - Virtual scrolling for very large days (>200 bullets)
+- **Polish** - Improve redaction modal UI (noted by user for future session)
 
 ---
 
 ## Next Steps
 
 **Current Status (2025-10-07):**
-- ✅ All Phase 1-5 complete
+- ✅ All Phases 1-6 complete
 - ✅ Production deployment live on Render.com
 - ✅ All testing issues (#1, #2, #3) resolved
-- ✅ Arbitrary note names support added
-- ✅ Wikilinks fully functional and clickable
-- ✅ Backlinks working with navigation
-- 🎯 **READY FOR PHASE 6 - POLISH & HARDENING**
+- ✅ Phase 6 polish features complete
+- 🎯 **READY FOR PHASE 7 - AI INTEGRATION (OPTIONAL)**
 
-**Phase 6 - Polish & Hardening (Next):**
-1. ~~Fix ghost bullet DOM issue~~ ✅ DONE
-2. ~~Fix wikilink navigation~~ ✅ DONE
-3. Add `test_data` migration to production
-4. Redaction UX (context menu to soft-delete)
-5. Offline support with service worker
-6. Virtual scrolling for large days
-7. Dark mode
-8. Keyboard shortcuts help (Cmd+?)
-9. Task modal paging
+**Phase 7 - AI Integration (Future - Optional):**
+1. Automatic task detection from bullet text
+2. Entity extraction and linking
+3. Daily digest generation
+4. Smart search with embeddings (pgvector)
+5. Bullet suggestions and auto-completion
+
+**Or consider the project complete and focus on:**
+- User testing and feedback
+- Performance monitoring
+- Documentation improvements
+- Bug fixes as discovered
 
 ---
 
 ## Git Status
 
 **Branch:** `main`
-**Latest Commit:** `b10a56b` - "fix: Issues #1, #2, #3 - Wikilinks, ghost bullets, backlinks, and arbitrary notes"
-**Status:** Committed locally (ready to push)
+**Latest Commit:** `f0a9745` - "feat: Complete Phase 6 - Polish & Hardening"
+**Status:** Pushed to remote
 
 **Recent Tags:**
 - `v0.5-production-deployed` - Phase 5 complete (2025-10-05)
 - `v0.4-bug-fixes-complete` - All 10 bugs fixed (2025-10-04)
 - `v0.3-frontend-complete` - Phase 2 & 3 complete (2025-10-04)
 
-**Session 2025-10-07 Commits:**
-- `b10a56b` - Fixed all testing issues + arbitrary note names
+**Recommended Next Tag:**
+- `v0.6-phase-6-complete` - Polish & Hardening complete (2025-10-07)
 
 ---
 
@@ -442,6 +578,5 @@ const formatDate = (dateStr: string): string => {
 - **Engineering Spec:** `/docs/jnotes_eng_spec.md` - Technical specification and architecture
 - **Implementation Plan:** `/docs/jnotes_impl_plan.md` - Phased development roadmap
 - **Project README:** `/CLAUDE.md` - Project overview and current status
-- **Testing Notes:** `/docs/TESTING_NOTES.md` - Production testing results and known issues
+- **Testing Notes:** `/docs/TESTING_NOTES.md` - Production testing results
 - **Deployment Guide:** `/docs/DEPLOYMENT.md` - Render.com deployment instructions
-- **Issues List:** `/docs/jnotes_issues_list.txt` - User-reported bugs (all resolved + 1 future enhancement)
