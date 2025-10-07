@@ -1,9 +1,9 @@
 # jnotes - Session Context
 
-**Date:** 2025-10-05
-**Status:** ✅ Phase 5 Complete - Production Deployed to Render.com
+**Date:** 2025-10-07
+**Status:** ✅ Issues #1, #2, #3 Fixed + Arbitrary Note Names
 **Branch:** `main`
-**Latest Tag:** `v0.5-production-deployed`
+**Latest Commit:** `b10a56b` - Fix wikilinks, ghost bullets, backlinks, arbitrary notes
 
 ---
 
@@ -139,11 +139,13 @@
 - Frontend: `https://jnotes-frontend.onrender.com`
 - Backend API: `https://jnotes-api.onrender.com`
 
-**Known Issues Documented:**
-- Ghost bullet DOM issue - Failed commits leave bullets marked as committed in DOM
-  - Documented in `docs/TESTING_NOTES.md`
-  - Workaround: Refresh page to clear stale state
-  - Fix needed: Roll back optimistic UI on commit failure
+**Session 2025-10-07 Updates:**
+1. ✅ Fixed Issue #1 - Ghost bullets (rollback optimistic UI on error)
+2. ✅ Fixed Issue #2 - Wikilink navigation (custom Tiptap extension)
+3. ✅ Fixed Issue #3 - Backlinks work (confirmed + fixed named note bug)
+4. ✅ Added arbitrary note names support (daily vs named notes)
+5. ✅ Added note type differentiation in UI (Today button, arrow nav)
+6. ✅ Added Cmd/Ctrl+H shortcut to go to today
 
 ---
 
@@ -381,12 +383,10 @@ const formatDate = (dateStr: string): string => {
 
 ## Known Issues
 
-### Ghost Bullet DOM Issue (Medium Priority)
-- **Issue:** Failed commits leave bullets marked as committed in DOM
-- **Impact:** Subsequent child bullets fail with foreign key errors
-- **Workaround:** Refresh page to clear stale state
-- **Fix Needed:** Roll back optimistic UI on commit failure
-- **Documented:** `docs/TESTING_NOTES.md`
+### ✅ All Issues from TESTING_NOTES.md Resolved (2025-10-07)
+- Issue #1: Ghost bullets - **FIXED** (rollback optimistic UI)
+- Issue #2: Wikilink navigation - **FIXED** (custom Tiptap extension)
+- Issue #3: Backlinks - **CONFIRMED WORKING** (fixed named note bug)
 
 ### Future Enhancements
 - **Test data cleanup** - Add `test_data` flag to notes table (schema ready, migration pending)
@@ -399,36 +399,41 @@ const formatDate = (dateStr: string): string => {
 
 ## Next Steps
 
-**Current Status (2025-10-05):**
+**Current Status (2025-10-07):**
 - ✅ All Phase 1-5 complete
 - ✅ Production deployment live on Render.com
-- ✅ Production testing verified (4,000 bullets)
-- ✅ FTS performance excellent
+- ✅ All testing issues (#1, #2, #3) resolved
+- ✅ Arbitrary note names support added
+- ✅ Wikilinks fully functional and clickable
+- ✅ Backlinks working with navigation
 - 🎯 **READY FOR PHASE 6 - POLISH & HARDENING**
 
 **Phase 6 - Polish & Hardening (Next):**
-1. Fix ghost bullet DOM issue (error recovery)
-2. Add `test_data` migration to production
-3. Redaction UX (context menu to soft-delete)
-4. Offline support with service worker
-5. Virtual scrolling for large days
-6. Dark mode
-7. Keyboard shortcuts help (Cmd+?)
-8. Task modal paging
+1. ~~Fix ghost bullet DOM issue~~ ✅ DONE
+2. ~~Fix wikilink navigation~~ ✅ DONE
+3. Add `test_data` migration to production
+4. Redaction UX (context menu to soft-delete)
+5. Offline support with service worker
+6. Virtual scrolling for large days
+7. Dark mode
+8. Keyboard shortcuts help (Cmd+?)
+9. Task modal paging
 
 ---
 
 ## Git Status
 
 **Branch:** `main`
-**Latest Tag:** `v0.5-production-deployed` ✅
-**Latest Commit:** `0609c5a` - "docs: Add testing notes and database sequence fix script"
-**Status:** Pushed to GitHub (origin/main)
+**Latest Commit:** `b10a56b` - "fix: Issues #1, #2, #3 - Wikilinks, ghost bullets, backlinks, and arbitrary notes"
+**Status:** Committed locally (ready to push)
 
 **Recent Tags:**
 - `v0.5-production-deployed` - Phase 5 complete (2025-10-05)
 - `v0.4-bug-fixes-complete` - All 10 bugs fixed (2025-10-04)
 - `v0.3-frontend-complete` - Phase 2 & 3 complete (2025-10-04)
+
+**Session 2025-10-07 Commits:**
+- `b10a56b` - Fixed all testing issues + arbitrary note names
 
 ---
 

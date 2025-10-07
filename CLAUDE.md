@@ -127,12 +127,20 @@ npm test               # Run tests with Vitest
 3. **Production Database** - Postgres Basic-1GB plan on Render
 4. **Load Testing** - Verified with 4,000 bullets, FTS super fast
 
+**✅ Recent Updates (2025-10-07):**
+1. **Wikilink Navigation** - Clickable wikilinks with custom Tiptap extension
+2. **Arbitrary Note Names** - Support for both daily notes (dates) and named notes
+3. **Ghost Bullets Fixed** - Rollback optimistic UI on commit failure
+4. **Backlinks Working** - Confirmed + fixed for named notes, clickable navigation
+5. **Note Type UI** - Daily notes show arrows, named notes show "Today" button
+6. **Cmd+H Shortcut** - Quick return to today's daily note
+
 **🔮 Future Enhancements (Phase 6+):**
 1. **Offline Support** - Service worker for offline writes
 2. **Redaction UX** - Context menu to soft-delete bullets
-3. **Error Recovery** - Fix ghost bullet DOM issue from failed commits
-4. **AI Integration** - Automatic task detection, entity extraction, daily digest
-5. **Semantic Search** - Embeddings with pgvector
+3. **AI Integration** - Automatic task detection, entity extraction, daily digest
+4. **Semantic Search** - Embeddings with pgvector
+5. **Dark Mode** - User preference for dark theme
 
 ## Development Notes
 
@@ -209,23 +217,25 @@ npm run prisma:generate  # Regenerate Prisma client
 
 ## Known Issues & Next Steps
 
-**Current Status (2025-10-05):**
+**Current Status (2025-10-07):**
 - ✅ All core features working in production
 - ✅ Backend deployed to Render.com
 - ✅ Frontend deployed to Render.com
 - ✅ Production testing complete (4,000 bullets)
-- ✅ Tagged as v0.5-production-deployed
+- ✅ All testing issues resolved (#1, #2, #3)
+- ✅ Wikilinks fully functional with navigation
+- ✅ Arbitrary note names supported
 - 🎯 Ready for Phase 6 - Polish & Hardening
 
-**Known Issues:**
-- **Ghost bullet DOM issue** - Failed commits leave uncommitted bullets marked as committed in DOM
-  - Workaround: Refresh page to clear stale state
-  - Fix needed in error handling to roll back optimistic UI
-  - See `docs/TESTING_NOTES.md` for details
+**All Known Issues Resolved (2025-10-07):**
+- ~~Ghost bullet DOM issue~~ - ✅ Fixed with optimistic UI rollback
+- ~~Wikilink navigation broken~~ - ✅ Fixed with custom Tiptap extension
+- ~~Backlinks not working~~ - ✅ Confirmed working, fixed named note bug
 
 **Next Steps:**
 1. **Phase 6 - Polish & Hardening** (3-5 days, ready to start)
-   - Fix ghost bullet DOM issue (error recovery)
+   - ~~Fix ghost bullet DOM issue~~ ✅ DONE
+   - ~~Fix wikilink navigation~~ ✅ DONE
    - Redaction UX (context menu to soft-delete)
    - Offline support with service worker
    - Virtual scrolling for large days
