@@ -211,7 +211,7 @@ router.get('/tasks', async (req, res, next) => {
         taskMap.set(bulletId, {
           bulletId: annotation.bullet.id,
           noteId: annotation.bullet.noteId,
-          date: annotation.bullet.note.date.toISOString().split('T')[0],
+          date: annotation.bullet.note.date?.toISOString().split('T')[0] || annotation.bullet.note.title || '',
           text: annotation.bullet.text,
           state,
           depth: annotation.bullet.depth,
