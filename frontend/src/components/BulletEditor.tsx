@@ -642,26 +642,20 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
 
       editor?.commands.setContent(html)
 
-      // Focus inside the last (empty) bullet's paragraph
-      // Use a setTimeout to ensure the content is fully rendered
+      // Focus inside the last (empty) bullet - simpler approach
       setTimeout(() => {
         if (editor) {
-          // Find the last paragraph in the document
+          // Use Tiptap's command chain to focus at start position
+          editor.chain().focus('start').run()
+
+          // Then move to the last empty bullet
           const { state } = editor
-          let lastParagraphPos = -1
+          const lastPos = state.doc.content.size - 2 // Just before the closing tags
 
-          state.doc.descendants((node, pos) => {
-            if (node.type.name === 'paragraph') {
-              lastParagraphPos = pos
-            }
-          })
-
-          // Focus inside the last paragraph (pos + 1 to get inside the text node)
-          if (lastParagraphPos >= 0) {
-            editor.commands.focus(lastParagraphPos + 1)
-          }
+          editor.commands.setTextSelection(lastPos)
+          editor.commands.focus()
         }
-      }, 10) // Small delay to ensure DOM is ready
+      }, 50) // Delay to ensure DOM is ready
 
       console.log('[BulletEditor] Loaded', bullets.length, 'bullets for note', noteId)
 
