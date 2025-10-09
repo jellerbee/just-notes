@@ -89,11 +89,10 @@ router.get('/:noteId', async (req, res, next) => {
       return res.status(404).json({ error: 'Note not found' });
     }
 
-    // Get bullets
+    // Get bullets (including redacted ones - frontend will handle display)
     const bullets = await prisma.bullet.findMany({
       where: {
         noteId,
-        redacted: false,
         ...(sinceSeq !== undefined && { orderSeq: { gt: sinceSeq } }),
       },
       orderBy: { orderSeq: 'asc' },

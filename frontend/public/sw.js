@@ -7,11 +7,11 @@ const CACHE_NAME = 'jnotes-v1';
 const API_CACHE_NAME = 'jnotes-api-v1';
 
 // Files to cache for offline use (app shell)
+// Note: In production, Vite bundles assets with hashed filenames.
+// We'll cache them dynamically as they're fetched instead of pre-caching.
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/src/main.tsx',
-  '/src/index.css',
 ];
 
 // Install event - cache static assets

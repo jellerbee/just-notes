@@ -103,6 +103,14 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
                 return { 'data-bullet-id': attributes['data-bullet-id'] }
               },
             },
+            'data-redacted': {
+              default: null,
+              parseHTML: element => element.getAttribute('data-redacted'),
+              renderHTML: attributes => {
+                if (!attributes['data-redacted']) return {}
+                return { 'data-redacted': attributes['data-redacted'] }
+              },
+            },
             style: {
               default: null,
               parseHTML: element => element.getAttribute('style'),
@@ -420,6 +428,25 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
           'data-bullet-id': bulletId,
           'data-committed': 'true',
         })
+
+        // Apply wikilink marks to make links clickable
+        const bulletText = listItemNode.textContent
+        const wikilinkRegex = /\[\[([^\]]+)\]\]/g
+        let match
+        let offset = listItemPos + 1 // +1 to skip listItem node itself and go into its content
+
+        while ((match = wikilinkRegex.exec(bulletText)) !== null) {
+          const start = offset + match.index
+          const end = start + match[0].length
+          const target = match[1]
+
+          tr.addMark(
+            start,
+            end,
+            state.schema.marks.wikilink.create({ target })
+          )
+        }
+
         return true
       })
       .splitListItem('listItem')
@@ -603,7 +630,8 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
           // Apply visual indent via inline style
           const indentPx = bullet.depth * 24 // 24px per depth level
           const htmlText = convertTextToHTML(bullet.text)
-          html += `<li data-bullet-id="${bullet.id}" data-committed="true" style="margin-left: ${indentPx}px;">${htmlText}</li>`
+          const redactedAttr = bullet.redacted ? ' data-redacted="true"' : ''
+          html += `<li data-bullet-id="${bullet.id}" data-committed="true"${redactedAttr} style="margin-left: ${indentPx}px;">${htmlText}</li>`
         })
 
         // Set last committed for parent tracking

@@ -48,6 +48,16 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
     }
   }, [isOpen])
 
+  // Scroll selected result into view
+  useEffect(() => {
+    if (!isOpen || pagedResults.length === 0) return
+
+    const selectedElement = document.querySelector(`.search-result-item-${selectedIndex}`)
+    if (selectedElement) {
+      selectedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [selectedIndex, isOpen, pagedResults.length])
+
   // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return
@@ -171,6 +181,7 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
           {pagedResults.map((result, index) => (
             <div
               key={result.bulletId}
+              className={`search-result-item-${index}`}
               onClick={() => handleSelectResult(result)}
               style={{
                 padding: '12px 16px',
