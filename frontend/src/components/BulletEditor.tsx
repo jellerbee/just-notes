@@ -297,16 +297,24 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
               editor?.commands.insertContentAt(state.doc.content.size - 1, '<li><p></p></li>')
               // Move cursor to the new bullet
               setTimeout(() => {
-                const newState = editor?.state
-                if (newState) {
-                  const endPos = newState.doc.content.size - 3 // Position inside the new paragraph
-                  const tr = newState.tr.setSelection(
-                    newState.selection.constructor.near(newState.doc.resolve(endPos))
-                  )
-                  editor?.view.dispatch(tr)
-                  editor?.commands.focus()
+                if (editor) {
+                  const newState = editor.state
+
+                  // Find the second-to-last paragraph (inside the new empty bullet)
+                  const paragraphs: number[] = []
+                  newState.doc.descendants((node, pos) => {
+                    if (node.type.name === 'paragraph') {
+                      paragraphs.push(pos)
+                    }
+                  })
+
+                  if (paragraphs.length >= 2) {
+                    const emptyBulletParaPos = paragraphs[paragraphs.length - 2]
+                    editor.commands.setTextSelection({ from: emptyBulletParaPos + 1, to: emptyBulletParaPos + 1 })
+                    editor.commands.focus()
+                  }
                 }
-              }, 0)
+              }, 10)
             }
 
             return true
@@ -642,20 +650,33 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
 
       editor?.commands.setContent(html)
 
-      // Focus inside the last (empty) bullet - simpler approach
+      // Focus inside the last (empty) bullet
       setTimeout(() => {
         if (editor) {
-          // Use Tiptap's command chain to focus at start position
-          editor.chain().focus('start').run()
-
-          // Then move to the last empty bullet
           const { state } = editor
-          const lastPos = state.doc.content.size - 2 // Just before the closing tags
 
-          editor.commands.setTextSelection(lastPos)
-          editor.commands.focus()
+          // Find all paragraphs and their positions
+          const paragraphs: number[] = []
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === 'paragraph') {
+              paragraphs.push(pos)
+            }
+          })
+
+          // The last paragraph is often outside the list (Tiptap adds an extra one),
+          // so use the second-to-last which is inside the last list item (the empty bullet)
+          if (paragraphs.length >= 2) {
+            const emptyBulletParaPos = paragraphs[paragraphs.length - 2]
+            editor.commands.setTextSelection({ from: emptyBulletParaPos + 1, to: emptyBulletParaPos + 1 })
+            editor.commands.focus()
+          } else if (paragraphs.length === 1) {
+            // Fallback: only one paragraph, use it
+            const paraPos = paragraphs[0]
+            editor.commands.setTextSelection({ from: paraPos + 1, to: paraPos + 1 })
+            editor.commands.focus()
+          }
         }
-      }, 50) // Delay to ensure DOM is ready
+      }, 50)
 
       console.log('[BulletEditor] Loaded', bullets.length, 'bullets for note', noteId)
 
