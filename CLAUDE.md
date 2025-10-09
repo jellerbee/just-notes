@@ -60,17 +60,21 @@ npm test               # Run tests with Vitest
 
 ## Key Implementation Details
 
-**Current Working State (Updated 2025-10-05):**
+**Current Working State (v1.0.0 - Updated 2025-10-09):**
+- ✅ **v1.0.0 PRODUCTION RELEASE COMPLETE**
 - ✅ **Phase 1** - Backend API complete (append log + materialized tables)
 - ✅ **Phase 2** - Bullet editor with append-only commits
 - ✅ **Phase 3** - Search, backlinks, and tasks fully functional
 - ✅ **Phase 4** - Bug Fixes - All 10 user-reported issues resolved
-- ✅ **Phase 5** - Production deployment to Render.com COMPLETE
+- ✅ **Phase 5** - Production deployment to Render.com
+- ✅ **Phase 6** - Polish & Hardening (offline support, redaction UX, pagination)
 - ✅ Frontend deployed as static site on Render
 - ✅ Backend deployed as web service on Render
 - ✅ JWT authentication framework in place
 - ✅ Production testing complete (4,000 bullets, FTS verified)
-- 🎯 **READY FOR PHASE 6** - Polish & Hardening
+- ✅ All 10 critical bugs fixed (#1-#10)
+- ✅ Release management process established
+- 🎯 **PRODUCTION READY** - Optional Phase 7 (AI Integration)
 
 **Append-Only Architecture:**
 - Committed bullets are **immutable** (read-only after pressing Enter)
@@ -127,20 +131,28 @@ npm test               # Run tests with Vitest
 3. **Production Database** - Postgres Basic-1GB plan on Render
 4. **Load Testing** - Verified with 4,000 bullets, FTS super fast
 
-**✅ Recent Updates (2025-10-07):**
-1. **Wikilink Navigation** - Clickable wikilinks with custom Tiptap extension
-2. **Arbitrary Note Names** - Support for both daily notes (dates) and named notes
-3. **Ghost Bullets Fixed** - Rollback optimistic UI on commit failure
-4. **Backlinks Working** - Confirmed + fixed for named notes, clickable navigation
-5. **Note Type UI** - Daily notes show arrows, named notes show "Today" button
-6. **Cmd+H Shortcut** - Quick return to today's daily note
+**✅ Phase 6 - Polish & Hardening (2025-10-07):**
+1. **Offline Support** - Service worker + IndexedDB queue for offline writes
+2. **Redaction UX** - Context menu to soft-delete bullets, hide/show toggle
+3. **Pagination** - TasksModal and SearchModal paginate at 50 items/page
+4. **Keyboard Help** - Cmd+/ shows all keyboard shortcuts
+5. **Test Data Cleanup** - Migration added `test_data` flag for easy cleanup
 
-**🔮 Future Enhancements (Phase 6+):**
-1. **Offline Support** - Service worker for offline writes
-2. **Redaction UX** - Context menu to soft-delete bullets
-3. **AI Integration** - Automatic task detection, entity extraction, daily digest
-4. **Semantic Search** - Embeddings with pgvector
-5. **Dark Mode** - User preference for dark theme
+**✅ Production Release - v1.0.0 (2025-10-09):**
+1. **Issue #3** - Fixed service worker cache error (removed non-existent source paths)
+2. **Issue #4** - Search modal scrolls selected result into view
+3. **Issue #5** - Wikilinks clickable after creation (apply marks on commit)
+4. **Issue #6** - Redacted bullets use strikethrough styling
+5. **Issue #7** - Redaction modal styled with inline CSS
+6. **Issue #8** - Hide/Show redacted button working
+7. **Issue #9** - Redacted bullets persist on refresh
+8. **Issue #10** - Cursor positioned inside empty bullet (not below)
+
+**🔮 Future Enhancements (Phase 7 - Optional):**
+1. **AI Integration** - Automatic task detection, entity extraction, daily digest
+2. **Semantic Search** - Embeddings with pgvector
+3. **Performance** - Virtual scrolling for very large days (>200 bullets)
+4. **Dark Mode** - User preference for dark theme
 
 ## Development Notes
 
@@ -181,31 +193,22 @@ npm test               # Run tests with Vitest
 - **Merge to main** - When phase is complete and tested
 - **Easy rollback** - Can always return to tagged states
 
-**Current Development Status (Updated 2025-10-07):**
-- ✅ **v0.6-phase-6-complete** - Phase 6 complete (ready to tag)
-  - Test data cleanup with `test_data` flag migration
-  - Redaction UX with context menu and hide/show toggle
-  - Offline support with service worker + IndexedDB queue
-  - Pagination for TasksModal and SearchModal (50 items/page)
-  - Keyboard shortcuts help modal (Cmd+/)
-- ✅ **v0.5-production-deployed** - Phase 5 complete (tagged)
-  - Backend deployed to Render.com (Node.js web service)
-  - Frontend deployed to Render.com (static site)
-  - JWT authentication framework (dev mode active)
-  - Production testing verified (4,000 bullets)
-  - FTS performance excellent
-  - Issues #1, #2, #3 resolved (ghost bullets, wikilinks, backlinks)
-  - Arbitrary note names support added
-- ✅ **v0.4-bug-fixes-complete** - All 10 user issues resolved
-  - Daily note header with formatted date
-  - Navigation with keyboard shortcuts (Cmd/Ctrl+↑/↓)
-  - Tag search backend implementation
-  - Bullet navigation and scrolling from search/tasks
-- ✅ **v0.3-frontend-complete** - Phase 2 & 3 complete
-  - Append-only bullet editor with depth tracking
-  - Wikilink and tag autocomplete
-  - Global search, backlinks, tasks
-- 🎯 **READY FOR PHASE 7 (OPTIONAL)** - AI Integration
+**Current Development Status (v1.0.0 - Updated 2025-10-09):**
+- ✅ **v1.0.0** - PRODUCTION RELEASE (tagged 2025-10-09)
+  - All Phases 1-6 complete
+  - All 10 critical bugs fixed (#1-#10)
+  - Release management process established
+  - Production-ready and deployed
+  - GitHub release: https://github.com/jellerbee/just-notes/releases/tag/v1.0.0
+- ✅ **v0.6-phase-6-complete** - Phase 6 complete (tagged 2025-10-07)
+  - Offline support, redaction UX, pagination, keyboard help
+- ✅ **v0.5-production-deployed** - Phase 5 complete (tagged 2025-10-05)
+  - Backend + Frontend deployed to Render.com
+  - JWT authentication framework
+  - Production testing verified
+- ✅ **v0.4-bug-fixes-complete** - Bug fixes (tagged 2025-10-04)
+- ✅ **v0.3-frontend-complete** - Phase 2 & 3 complete (tagged 2025-10-04)
+- 🎯 **Phase 7 (Optional)** - AI Integration (future enhancement)
 
 **Development Commands:**
 ```bash
@@ -225,44 +228,46 @@ npm run prisma:generate  # Regenerate Prisma client
 
 ## Known Issues & Next Steps
 
-**Current Status (2025-10-07):**
+**Current Status (v1.0.0 - 2025-10-09):**
+- ✅ **v1.0.0 PRODUCTION RELEASE COMPLETE**
 - ✅ All Phases 1-6 complete
+- ✅ All 10 critical bugs fixed (#1-#10)
 - ✅ Backend deployed to Render.com
 - ✅ Frontend deployed to Render.com
 - ✅ Production testing complete (4,000 bullets)
-- ✅ All testing issues resolved (#1, #2, #3)
-- ✅ Wikilinks fully functional with navigation
-- ✅ Arbitrary note names supported
-- ✅ Phase 6 polish features complete
-- 🎯 Ready for Phase 7 (Optional) - AI Integration
+- ✅ Release management process established
 
-**All Known Issues Resolved (2025-10-07):**
-- ~~Ghost bullet DOM issue~~ - ✅ Fixed with optimistic UI rollback
-- ~~Wikilink navigation broken~~ - ✅ Fixed with custom Tiptap extension
-- ~~Backlinks not working~~ - ✅ Confirmed working, fixed named note bug
-- ~~Prisma tsvector error~~ - ✅ Fixed by marking as Unsupported type
+**All Known Issues Resolved (v1.0.0 - 2025-10-09):**
+- ~~Issue #1: Offline sync failure~~ - ✅ Fixed (idempotency key upsert)
+- ~~Issue #2: Search pagination~~ - ✅ Fixed (removed LIMIT 50)
+- ~~Issue #3: Service worker cache error~~ - ✅ Fixed (removed non-existent paths)
+- ~~Issue #4: Search modal scroll~~ - ✅ Fixed (scrollIntoView effect)
+- ~~Issue #5: Wikilinks not clickable~~ - ✅ Fixed (apply marks on commit)
+- ~~Issue #6: Redaction styling~~ - ✅ Fixed (strikethrough)
+- ~~Issue #7: Redaction modal styling~~ - ✅ Fixed (inline styles)
+- ~~Issue #8: Hide/Show redacted button~~ - ✅ Fixed (CSS class toggle)
+- ~~Issue #9: Redacted bullets disappear~~ - ✅ Fixed (return all bullets)
+- ~~Issue #10: Cursor positioning~~ - ✅ Fixed (second-to-last paragraph)
 
-**Phase 6 Complete (2025-10-07):**
-- ✅ Test data cleanup with `test_data` flag migration
-- ✅ Redaction UX (context menu + "Hide Redacted" toggle)
-- ✅ Offline support (service worker + IndexedDB queue)
-- ✅ Modal pagination (TasksModal & SearchModal, 50 items/page)
-- ✅ Keyboard shortcuts help (Cmd+/)
-- ⏭️ Virtual scrolling (skipped - rarely >50 bullets/day)
-- ⏭️ Dark mode (skipped - not needed)
+**No known issues at this time.**
 
-**Next Steps:**
-1. **Phase 7 - AI Integration (Optional)** - Future enhancement
-   - Automatic task detection from bullet text
-   - Entity extraction and linking
-   - Daily digest generation
-   - Smart search with embeddings (pgvector)
-   - Bullet suggestions and auto-completion
+**Release Management:**
+- Monthly releases scheduled for 1st week of each month
+- Hotfix process defined for critical bugs only
+- See `docs/RELEASE_PROCESS.md` for complete workflow
+- GitHub releases: https://github.com/jellerbee/just-notes/releases
 
-**Or consider project complete and focus on:**
+**Future Enhancements (Phase 7 - Optional):**
+1. **AI Integration** - Automatic task detection from bullet text
+2. **Entity Extraction** - Auto-link people, places, projects
+3. **Daily Digest** - AI-generated summary of day's notes
+4. **Semantic Search** - Embeddings with pgvector
+5. **Auto-completion** - AI-powered bullet suggestions
+
+**Recommended Focus:**
 - User testing and feedback
 - Performance monitoring
-- Documentation improvements
+- Monthly feature releases
 - Bug fixes as discovered
 
 **Breaking Changes from Electron Prototype:**
@@ -279,7 +284,8 @@ npm run prisma:generate  # Regenerate Prisma client
 - **Session Context:** `SESSION_CONTEXT.md` - Current session progress and implementation details
 - **Testing Notes:** `docs/TESTING_NOTES.md` - Production testing results and known issues
 - **Deployment Guide:** `docs/DEPLOYMENT.md` - Render.com deployment instructions
-- **Issues List:** `docs/jnotes_issues_list.txt` - Bugs found during user testing
+- **Release Process:** `docs/RELEASE_PROCESS.md` - Monthly release and hotfix workflow
+- **Release Notes:** `docs/releases/v1.0.0-release-notes.md` - v1.0.0 production release
 
 ## Legacy Note
 

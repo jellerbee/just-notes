@@ -1,5 +1,9 @@
 # Deployment Guide - Render.com
 
+**Current Version:** v1.0.0 (Production Release)
+**Status:** ✅ Deployed and Production-Ready
+**Updated:** October 9, 2025
+
 This guide covers deploying jnotes to Render.com using the infrastructure-as-code blueprint (`render.yaml`).
 
 ## Prerequisites
@@ -130,6 +134,12 @@ npx prisma studio  # Opens GUI at localhost:5555
 **Manual Deploy:**
 - Render Dashboard → Service → Manual Deploy
 
+**Release Management:**
+- Monthly releases scheduled for 1st week of each month
+- Hotfixes deployed immediately for critical bugs
+- See `docs/RELEASE_PROCESS.md` for complete workflow
+- Tag format: `v1.0.0` (production), `v1.0.1` (hotfix), `v1.1.0` (monthly release)
+
 ## Troubleshooting
 
 ### Backend Errors
@@ -196,18 +206,31 @@ render logs jnotes-api
 
 **To Tagged Version:**
 ```bash
-git checkout v0.4-bug-fixes-complete
+git checkout v1.0.0  # Or any other tag
 git push origin main --force  # ⚠️ Use with caution
 ```
 
-## Next Steps
+**Important Browser Cache Note:**
+- After deployment, users may see stale cached frontend
+- Solution: Hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
+- Service worker caches aggressively for performance
+- Consider adding cache-busting query params for major releases
 
-After deployment:
-1. Test all features (bullets, search, backlinks, tasks)
-2. Run load testing with realistic data
-3. Implement proper authentication (email/password)
-4. Set up monitoring and alerting
-5. Configure custom domain (optional)
+## Production Status (v1.0.0)
+
+**✅ Completed:**
+1. ✅ All features tested (bullets, search, backlinks, tasks, redaction, offline)
+2. ✅ Load testing complete (4,000 bullets verified)
+3. ✅ JWT authentication framework in place (dev mode active)
+4. ✅ Production deployment verified
+5. ✅ All 10 critical bugs fixed
+
+**Next Steps:**
+1. Continue user testing and gather feedback
+2. Monitor performance and error logs
+3. Implement monthly feature releases (see `RELEASE_PROCESS.md`)
+4. Consider custom domain configuration
+5. Optional: Implement full authentication (email/password) for multi-user
 
 ## Cost Estimate (Render Starter Plan)
 
@@ -220,4 +243,14 @@ After deployment:
 
 - **Render Docs** - https://render.com/docs
 - **Render Community** - https://community.render.com
-- **Project Issues** - See `docs/jnotes_issues_list.txt`
+- **GitHub Issues** - https://github.com/jellerbee/just-notes/issues
+- **Release Process** - See `docs/RELEASE_PROCESS.md`
+- **Release Notes** - See `docs/releases/v1.0.0-release-notes.md`
+
+## Related Documentation
+
+- **Release Process:** `docs/RELEASE_PROCESS.md` - Monthly release and hotfix workflow
+- **Release Notes:** `docs/releases/v1.0.0-release-notes.md` - v1.0.0 production release
+- **Engineering Spec:** `docs/jnotes_eng_spec.md` - Complete technical specification
+- **Session Context:** `SESSION_CONTEXT.md` - Current implementation details
+- **Project README:** `CLAUDE.md` - Project overview and status

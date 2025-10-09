@@ -1,9 +1,10 @@
 # jnotes - Session Context
 
-**Date:** 2025-10-07
-**Status:** ✅ Phase 6 Complete - Polish & Hardening
+**Date:** 2025-10-09
+**Status:** ✅ v1.0.0 Production Release
 **Branch:** `main`
-**Latest Commit:** `f0a9745` - Complete Phase 6 with all polish features
+**Latest Tag:** `v1.0.0` - Initial production release
+**Latest Commit:** `400b682` - Handle null date field in tasks endpoint
 
 ---
 
@@ -152,49 +153,55 @@
 **Completed Tasks:**
 
 1. ✅ **Test Data Cleanup** - Added `test_data` flag migration
-   - Files: `backend/prisma/schema.prisma`, `backend/prisma/migrations/20251007221309_init/`
-   - Added `test_data`, `note_type`, `title` fields to Notes table
-   - Updated test data generation script to set `testData: true`
-   - Cleanup: `node scripts/generate-test-data.js --cleanup`
-
 2. ✅ **Redaction UX** - Context menu and hide/show toggle
-   - Files: `frontend/src/components/RedactionModal.tsx`, `frontend/src/components/BulletEditor.tsx`
-   - Right-click committed bullets → context menu → redact confirmation
-   - "Hide Redacted" toggle button in note header
-   - Redacted bullets styled with gray italic text
-   - Backend `/redact` endpoint already existed
-
 3. ✅ **Offline Support** - Service worker + IndexedDB queue
-   - Files: `frontend/public/sw.js`, `frontend/src/lib/offlineQueue.ts`, `frontend/src/lib/serviceWorker.ts`
-   - Created service worker for offline caching and background sync
-   - IndexedDB queue persists offline writes
-   - SyncStatus component shows Online/Offline/Pending/Syncing states
-   - Manual "Sync Now" button as fallback
-   - Updated API client to queue writes when offline
-
-4. ✅ **Modal Pagination** - TasksModal and SearchModal
-   - Files: `frontend/src/components/TasksModal.tsx`, `frontend/src/components/SearchModal.tsx`
-   - Page size: 50 items per page
-   - Keyboard shortcuts: PageUp/PageDown, Cmd/Ctrl+←/→
-   - Pagination UI with Previous/Next buttons and page indicator
-   - Only shown when totalPages > 1
-
+4. ✅ **Modal Pagination** - TasksModal and SearchModal (50 items/page)
 5. ✅ **Keyboard Shortcuts Help** - Cmd+/ modal
-   - Files: `frontend/src/components/KeyboardHelpModal.tsx`, `frontend/src/App.tsx`
-   - Created help modal with organized shortcut groups
-   - Global Navigation, Daily Note Navigation, Bullet Editor, Search Modal, Tasks Modal
-   - Hotkey: Cmd+/ (or Ctrl+/)
-   - Clean UI with kbd-style key display
 
-**Bug Fixes:**
-- ✅ Fixed Prisma tsvector deserialization error
-  - Changed schema to mark `text_tsv` as `Unsupported("tsvector")`
-  - Updated `indexer.ts` to only select `id` field (avoids tsvector return)
-- ✅ Fixed keyboard shortcut from Cmd+? to Cmd+/ (easier to press)
+### Production Release - v1.0.0 ✅ (2025-10-09)
 
-**Skipped Tasks (User Decision):**
-- ⏭️ Virtual scrolling (rarely >50 bullets/day)
-- ⏭️ Dark mode (not needed)
+**Final Bug Fixes (Issues #3-#10):**
+
+1. ✅ **Issue #3** - Service worker cache error
+   - Fixed STATIC_ASSETS array to only cache `/` and `/index.html`
+   - Removed non-existent source paths that caused cache errors
+
+2. ✅ **Issue #4** - Search modal doesn't scroll selected result
+   - Added scrollIntoView effect for search results navigation
+   - Added className to result items for targeting
+
+3. ✅ **Issue #5** - Wikilinks not clickable after creation
+   - Applied wikilink marks on commit using regex pattern matching
+   - Makes `[[target]]` patterns clickable immediately after Enter
+
+4. ✅ **Issue #6** - Use strikeout instead of "Redacted" text
+   - Changed CSS from italic text to `text-decoration: line-through`
+   - Improved visual distinction for redacted bullets
+
+5. ✅ **Issue #7** - Redaction dialog should be modal
+   - Converted RedactionModal from Tailwind to inline styles
+   - Proper modal overlay with backdrop blur
+
+6. ✅ **Issue #8** - Hide/Show redacted button not working
+   - Fixed by returning all bullets from backend (removed `redacted: false` filter)
+   - Frontend handles display via CSS `.hide-redacted` class
+
+7. ✅ **Issue #9** - Redacted bullets disappear on refresh
+   - Fixed by returning all bullets from backend
+   - Added `data-redacted` attribute to ListItem extension
+   - Bullets persist with proper redacted styling
+
+8. ✅ **Issue #10** - Cursor placed below empty bullet
+   - Fixed Tiptap document structure understanding
+   - Use second-to-last paragraph (inside last list item) instead of last
+   - Applied to both page navigation AND Enter key scenarios
+
+**Release Management:**
+- Created `docs/RELEASE_PROCESS.md` with monthly release schedule
+- Created `docs/releases/v1.0.0-release-notes.md`
+- Tagged v1.0.0 and created GitHub release
+- Established hotfix process for critical bugs
+- All 10 issues (#1-#10) closed on GitHub
 
 ---
 
@@ -437,6 +444,17 @@ const formatDate = (dateStr: string): string => {
 - Changed schema to mark `text_tsv` as `Unsupported("tsvector")`
 - Updated bullet creation to only select `id` field (avoids returning tsvector)
 
+### Bug 11: Service Worker Cache Error (Issue #3)
+**Symptom:** Cache errors in production for non-existent source files
+**Root Cause:** STATIC_ASSETS included `/src/main.tsx` and `/src/index.css` which don't exist in production build
+**Fix:** Removed non-existent paths, only cache `/` and `/index.html`
+
+### Bug 12: Cursor Positioning Below Empty Bullet (Issue #10)
+**Symptom:** Cursor appears on line below empty bullet instead of inside it
+**Root Cause:** Tiptap adds extra paragraph node outside lists, targeting wrong paragraph
+**Fix:** Use second-to-last paragraph (inside last list item) instead of last paragraph
+**Files:** `frontend/src/components/BulletEditor.tsx:653-679, 303-316`
+
 ---
 
 ## Architecture
@@ -519,28 +537,43 @@ const formatDate = (dateStr: string): string => {
 
 ## Known Issues
 
-### ✅ All Issues Resolved (2025-10-07)
-- Issue #1: Ghost bullets - **FIXED** (rollback optimistic UI)
-- Issue #2: Wikilink navigation - **FIXED** (custom Tiptap extension)
-- Issue #3: Backlinks - **FIXED** (confirmed working, fixed named note bug)
-- Prisma tsvector error - **FIXED** (marked as Unsupported type)
+### ✅ All Issues Resolved (v1.0.0 - 2025-10-09)
+- Issue #1: Offline sync failure - **FIXED** (idempotency key upsert)
+- Issue #2: Search pagination - **FIXED** (removed LIMIT 50)
+- Issue #3: Service worker cache error - **FIXED** (removed non-existent source paths)
+- Issue #4: Search modal scroll - **FIXED** (scrollIntoView effect)
+- Issue #5: Wikilinks not clickable - **FIXED** (apply marks on commit)
+- Issue #6: Redaction styling - **FIXED** (strikethrough instead of text replacement)
+- Issue #7: Redaction modal styling - **FIXED** (inline styles)
+- Issue #8: Hide/Show redacted button - **FIXED** (CSS class toggle)
+- Issue #9: Redacted bullets disappear - **FIXED** (return all bullets from backend)
+- Issue #10: Cursor positioning - **FIXED** (second-to-last paragraph)
 
-### Future Enhancements
-- **Semantic search** - Embeddings with pgvector
+**No known issues at this time.**
+
+### Future Enhancements (Phase 7 - Optional)
 - **AI Integration** - Automatic task detection, entity extraction, daily digest
+- **Semantic search** - Embeddings with pgvector
 - **Performance optimization** - Virtual scrolling for very large days (>200 bullets)
-- **Polish** - Improve redaction modal UI (noted by user for future session)
+- **Dark mode** - User preference for dark theme
 
 ---
 
 ## Next Steps
 
-**Current Status (2025-10-07):**
+**Current Status (v1.0.0 - 2025-10-09):**
+- ✅ **v1.0.0 PRODUCTION RELEASE COMPLETE**
 - ✅ All Phases 1-6 complete
+- ✅ All 10 critical bugs fixed (#1-#10)
 - ✅ Production deployment live on Render.com
-- ✅ All testing issues (#1, #2, #3) resolved
-- ✅ Phase 6 polish features complete
-- 🎯 **READY FOR PHASE 7 - AI INTEGRATION (OPTIONAL)**
+- ✅ Release process established (monthly releases + hotfixes)
+- ✅ Release notes and documentation complete
+
+**Release Management:**
+- Monthly releases scheduled for 1st week of each month
+- Hotfix process defined for critical bugs only
+- See `docs/RELEASE_PROCESS.md` for details
+- Next release: TBD (based on feature needs)
 
 **Phase 7 - AI Integration (Future - Optional):**
 1. Automatic task detection from bullet text
@@ -549,10 +582,10 @@ const formatDate = (dateStr: string): string => {
 4. Smart search with embeddings (pgvector)
 5. Bullet suggestions and auto-completion
 
-**Or consider the project complete and focus on:**
+**Recommended Focus:**
 - User testing and feedback
 - Performance monitoring
-- Documentation improvements
+- Monthly feature releases
 - Bug fixes as discovered
 
 ---
@@ -560,16 +593,19 @@ const formatDate = (dateStr: string): string => {
 ## Git Status
 
 **Branch:** `main`
-**Latest Commit:** `f0a9745` - "feat: Complete Phase 6 - Polish & Hardening"
+**Latest Tag:** `v1.0.0` - Production release (2025-10-09)
+**Latest Commit:** `400b682` - Handle null date field in tasks endpoint
 **Status:** Pushed to remote
 
-**Recent Tags:**
+**Release History:**
+- `v1.0.0` - Initial production release (2025-10-09)
+- `v0.6-phase-6-complete` - Polish & Hardening complete (2025-10-07)
 - `v0.5-production-deployed` - Phase 5 complete (2025-10-05)
 - `v0.4-bug-fixes-complete` - All 10 bugs fixed (2025-10-04)
 - `v0.3-frontend-complete` - Phase 2 & 3 complete (2025-10-04)
 
-**Recommended Next Tag:**
-- `v0.6-phase-6-complete` - Polish & Hardening complete (2025-10-07)
+**GitHub Release:**
+- https://github.com/jellerbee/just-notes/releases/tag/v1.0.0
 
 ---
 
@@ -580,3 +616,5 @@ const formatDate = (dateStr: string): string => {
 - **Project README:** `/CLAUDE.md` - Project overview and current status
 - **Testing Notes:** `/docs/TESTING_NOTES.md` - Production testing results
 - **Deployment Guide:** `/docs/DEPLOYMENT.md` - Render.com deployment instructions
+- **Release Process:** `/docs/RELEASE_PROCESS.md` - Monthly release and hotfix workflow
+- **Release Notes:** `/docs/releases/v1.0.0-release-notes.md` - v1.0.0 production release
