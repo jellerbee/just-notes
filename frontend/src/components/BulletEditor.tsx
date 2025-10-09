@@ -638,27 +638,27 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
         lastCommittedIdRef.current = bullets[bullets.length - 1].id
       }
 
-      html += '<li></li></ul>' // Add empty editable bullet at end
+      html += '<li><p></p></li></ul>' // Add empty editable bullet with explicit paragraph
 
       editor?.commands.setContent(html)
 
-      // Focus inside the last (empty) bullet instead of after it
+      // Focus inside the last (empty) bullet's paragraph
       // Use a setTimeout to ensure the content is fully rendered
       setTimeout(() => {
         if (editor) {
-          // Find the last list item in the document
+          // Find the last paragraph in the document
           const { state } = editor
-          let lastListItemPos = -1
+          let lastParagraphPos = -1
 
           state.doc.descendants((node, pos) => {
-            if (node.type.name === 'listItem') {
-              lastListItemPos = pos
+            if (node.type.name === 'paragraph') {
+              lastParagraphPos = pos
             }
           })
 
-          // Focus inside the last list item (pos + 1 to get inside the node)
-          if (lastListItemPos >= 0) {
-            editor.commands.focus(lastListItemPos + 1)
+          // Focus inside the last paragraph (pos + 1 to get inside the text node)
+          if (lastParagraphPos >= 0) {
+            editor.commands.focus(lastParagraphPos + 1)
           }
         }
       }, 10) // Small delay to ensure DOM is ready
