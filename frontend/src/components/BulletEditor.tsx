@@ -641,7 +641,18 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
       html += '<li></li></ul>' // Add empty editable bullet at end
 
       editor?.commands.setContent(html)
-      editor?.commands.focus('end')
+
+      // Focus inside the last (empty) bullet instead of after it
+      setTimeout(() => {
+        if (editor) {
+          const { state } = editor
+          const lastListItem = state.doc.lastChild?.lastChild // Get last list item in the bullet list
+          if (lastListItem && lastListItem.type.name === 'listItem') {
+            const pos = state.doc.content.size - 3 // Position inside the last empty list item
+            editor.commands.focus(pos)
+          }
+        }
+      }, 0)
 
       console.log('[BulletEditor] Loaded', bullets.length, 'bullets for note', noteId)
 
