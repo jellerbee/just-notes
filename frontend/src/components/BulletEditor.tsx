@@ -643,16 +643,25 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
       editor?.commands.setContent(html)
 
       // Focus inside the last (empty) bullet instead of after it
+      // Use a setTimeout to ensure the content is fully rendered
       setTimeout(() => {
         if (editor) {
+          // Find the last list item in the document
           const { state } = editor
-          const lastListItem = state.doc.lastChild?.lastChild // Get last list item in the bullet list
-          if (lastListItem && lastListItem.type.name === 'listItem') {
-            const pos = state.doc.content.size - 3 // Position inside the last empty list item
-            editor.commands.focus(pos)
+          let lastListItemPos = -1
+
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === 'listItem') {
+              lastListItemPos = pos
+            }
+          })
+
+          // Focus inside the last list item (pos + 1 to get inside the node)
+          if (lastListItemPos >= 0) {
+            editor.commands.focus(lastListItemPos + 1)
           }
         }
-      }, 0)
+      }, 10) // Small delay to ensure DOM is ready
 
       console.log('[BulletEditor] Loaded', bullets.length, 'bullets for note', noteId)
 
