@@ -116,11 +116,11 @@ span[data-wikilink="true"]:hover {
   color: #8250df;
 }
 
-/* Redacted bullets */
+/* Redacted bullets - strikethrough style */
 .ProseMirror li[data-redacted="true"] > p {
+  text-decoration: line-through;
   color: #999 !important;
-  font-style: italic;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 /* Hide redacted bullets when toggle is active */

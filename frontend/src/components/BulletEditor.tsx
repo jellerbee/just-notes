@@ -864,13 +864,14 @@ function BulletEditor({ noteId, noteDate, noteType, scrollToBulletId, onNavigate
     try {
       await api.redact(bulletToRedact.bulletId, reason || undefined)
 
-      // Update the bullet in DOM to show as redacted
+      // Update the bullet in DOM to show as redacted (strikethrough via CSS)
       const bulletElement = document.querySelector(`li[data-bullet-id="${bulletToRedact.bulletId}"]`)
       if (bulletElement) {
-        const paragraph = bulletElement.querySelector('p')
-        if (paragraph) {
-          paragraph.innerHTML = `<span style="color: #999; font-style: italic;">Redacted${reason ? ` (${reason})` : ''}</span>`
-          bulletElement.setAttribute('data-redacted', 'true')
+        // Just add the data-redacted attribute - CSS handles strikethrough styling
+        bulletElement.setAttribute('data-redacted', 'true')
+        // Optionally store reason in data attribute for future use
+        if (reason) {
+          bulletElement.setAttribute('data-redact-reason', reason)
         }
       }
 
