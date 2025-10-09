@@ -12,10 +12,14 @@ const prisma = new PrismaClient();
 router.get('/', async (req, res, next) => {
   try {
     const query = req.query.q as string;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 500; // Default to 500 for client-side pagination
 
     if (!query || query.length < 2) {
       return res.json([]);
     }
+
+    // Validate and cap limit to prevent excessive queries
+    const cappedLimit = Math.min(Math.max(limit, 1), 1000);
 
     // Use Postgres FTS with tsvector
     // Cast text_tsv to tsvector since Prisma stores it as TEXT
@@ -39,7 +43,7 @@ router.get('/', async (req, res, next) => {
       WHERE b.redacted = false
         AND b.text_tsv::tsvector @@ plainto_tsquery('english', ${query})
       ORDER BY ts_rank(b.text_tsv::tsvector, plainto_tsquery('english', ${query})) DESC
-      LIMIT 50
+      LIMIT ${cappedLimit}
     `;
 
     const results: SearchResult[] = bullets.map(b => ({
