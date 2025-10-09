@@ -164,11 +164,20 @@ router.post('/:noteId/bullets/append', async (req, res, next) => {
     await Indexer.processBulletAppend(noteId, orderSeq, payload);
     await Indexer.updateNoteSeq(noteId, orderSeq);
 
-    // Store idempotency key if provided
+    // Store idempotency key if provided (upsert to handle retries)
     if (payload.clientSeq !== undefined) {
       const clientId = req.headers['x-client-id'] as string || 'default';
-      await prisma.idempotencyKey.create({
-        data: {
+      await prisma.idempotencyKey.upsert({
+        where: {
+          clientId_clientSeq: {
+            clientId,
+            clientSeq: payload.clientSeq,
+          },
+        },
+        update: {
+          // Key already exists, no update needed
+        },
+        create: {
           clientId,
           clientSeq: payload.clientSeq,
           bulletId: payload.bulletId,
@@ -181,6 +190,12 @@ router.post('/:noteId/bullets/append', async (req, res, next) => {
       lastSeq: orderSeq,
     } as AppendResponse);
   } catch (error) {
+    console.error('[Notes] Error appending bullet:', {
+      noteId: req.params.noteId,
+      bulletId: req.body.bulletId,
+      clientSeq: req.body.clientSeq,
+      error: error instanceof Error ? error.message : String(error),
+    });
     next(error);
   }
 });

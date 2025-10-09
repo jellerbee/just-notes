@@ -325,7 +325,15 @@ class NotesAPI {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to sync append: ${response.statusText}`);
+          const errorText = await response.text();
+          let errorMsg = response.statusText;
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMsg = errorJson.message || errorJson.error || errorMsg;
+          } catch {
+            errorMsg = errorText || errorMsg;
+          }
+          throw new Error(`Failed to sync append (${response.status}): ${errorMsg}`);
         }
 
         // Success - remove from queue
